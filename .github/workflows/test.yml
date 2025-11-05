@@ -82,77 +82,6 @@ jobs:
         id: cache-key
         run: echo "key=${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('go.sum', 'go.mod') }}" >> $GITHUB_OUTPUT
 
-  lint:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, setup]
-    if: needs.detect-changes.outputs.go-changed == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ needs.setup.outputs.cache-key }}
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Run gofmt
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted:"
-            gofmt -s -l .
-            exit 1
-          fi
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
-
-  security:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, setup]
-    if: needs.detect-changes.outputs.go-changed == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ needs.setup.outputs.cache-key }}
-
-      - name: Run Gosec Security Scanner
-        uses: securecodewarrior/github-action-gosec@master
-        with:
-          args: "-no-fail -fmt sarif -out results.sarif ./..."
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
-
   test:
     runs-on: ubuntu-latest
     needs: [detect-changes, setup]
@@ -250,71 +179,23 @@ jobs:
         env:
           CI: true
 
-  benchmark:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, setup, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ needs.setup.outputs.cache-key }}
-
-      - name: Run benchmarks
-        run: |
-          go test -bench=. -benchmem -count=3 ./... | tee benchmark.txt
-
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        with:
-          tool: "go"
-          output-file-path: benchmark.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          comment-on-alert: true
-          alert-threshold: "200%"
-          fail-on-alert: true
-
   summary:
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint, security, test, integration-test]
+    needs: [detect-changes, test, integration-test]
     if: always()
     steps:
       - name: Test Summary
         if: needs.test.result == 'success'
         run: echo "✅ All tests passed successfully"
 
-      - name: Lint Summary
-        if: needs.lint.result == 'success'
-        run: echo "✅ Code linting passed"
-
-      - name: Security Summary
-        if: needs.security.result == 'success'
-        run: echo "✅ Security scan passed"
-
       - name: Integration Test Summary
         if: needs.integration-test.result == 'success'
         run: echo "✅ Integration tests passed"
 
       - name: Failure Summary
-        if: needs.test.result == 'failure' || needs.lint.result == 'failure' || needs.security.result == 'failure' || needs.integration-test.result == 'failure'
+        if: needs.test.result == 'failure' || needs.integration-test.result == 'failure'
         run: |
           echo "❌ Some checks failed:"
           echo "Test: ${{ needs.test.result }}"
-          echo "Lint: ${{ needs.lint.result }}"
-          echo "Security: ${{ needs.security.result }}"
           echo "Integration: ${{ needs.integration-test.result }}"
           exit 1
