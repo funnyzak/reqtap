@@ -54,11 +54,21 @@ func NewHandler(
 
 // ServeHTTP implements the http.Handler interface
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Read request body before sending response
+	// This prevents "http: invalid Read on closed Body" error
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Error("Failed to read request body", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+
 	// Send immediate response to client
 	h.sendImmediateResponse(w)
 
-	// Process request asynchronously
-	go h.processRequest(r)
+	// Process request asynchronously with already read body
+	go h.processRequest(r, bodyBytes)
 }
 
 // sendImmediateResponse sends immediate response
@@ -79,15 +89,7 @@ func (h *Handler) sendImmediateResponse(w http.ResponseWriter) {
 }
 
 // processRequest processes request asynchronously
-func (h *Handler) processRequest(r *http.Request) {
-	// Read request body
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.logger.Error("Failed to read request body", "error", err)
-		return
-	}
-	r.Body.Close()
-
+func (h *Handler) processRequest(r *http.Request, bodyBytes []byte) {
 	// Create request record
 	record := request.NewRequestData(r, bodyBytes)
 
