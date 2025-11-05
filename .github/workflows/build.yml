@@ -1,0 +1,297 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - docs/**
+      - "*.md"
+      - ".gitignore"
+      - "LICENSE"
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - docs/**
+      - "*.md"
+      - ".gitignore"
+      - "LICENSE"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Build version (leave empty for auto-generated)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (don't upload artifacts)"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: "Build version"
+        required: false
+        type: string
+        default: ""
+      upload_artifacts:
+        description: "Upload build artifacts"
+        required: false
+        type: boolean
+        default: true
+      artifact_retention_days:
+        description: "Artifact retention days"
+        required: false
+        type: number
+        default: 30
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GO_VERSION: "1.23"
+  APP_NAME: "reqtap"
+  BUILD_DIR: "build"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_date: ${{ steps.build-info.outputs.date }}
+      commit_hash: ${{ steps.build-info.outputs.hash }}
+      cache_key: ${{ steps.cache.outputs.key }}
+      upload_artifacts: ${{ steps.artifacts.outputs.upload }}
+      retention_days: ${{ steps.artifacts.outputs.retention }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Generate version info
+        id: version
+        run: |
+          if [[ -n "${{ inputs.version || github.event.inputs.version }}" ]]; then
+            VERSION="${{ inputs.version || github.event.inputs.version }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="v0.0.0-${{ github.sha }}-${{ github.run_number }}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+
+      - name: Extract build info
+        id: build-info
+        run: |
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          echo "hash=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Setup artifact config
+        id: artifacts
+        run: |
+          UPLOAD="${{ inputs.upload_artifacts || (github.event.inputs.dry_run != 'true') }}"
+          RETENTION="${{ inputs.artifact_retention_days || '30' }}"
+          echo "upload=${UPLOAD}" >> $GITHUB_OUTPUT
+          echo "retention=${RETENTION}" >> $GITHUB_OUTPUT
+
+      - name: Setup Go cache
+        id: cache
+        run: |
+          echo "key=${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('go.sum', 'go.mod') }}" >> $GITHUB_OUTPUT
+
+  build-matrix:
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: arm64
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: amd64
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: arm64
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: windows
+            goarch: amd64
+            binary_name: reqtap.exe
+            archive_ext: zip
+      fail-fast: false
+    outputs:
+      artifacts: ${{ steps.artifacts.outputs.artifacts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Build binary
+        run: |
+          mkdir -p ${{ env.BUILD_DIR }}
+
+          # Set build variables
+          export VERSION="${{ needs.setup.outputs.version }}"
+          export BUILD_DATE="${{ needs.setup.outputs.build_date }}"
+          export COMMIT_HASH="${{ needs.setup.outputs.commit_hash }}"
+          export GOOS="${{ matrix.goos }}"
+          export GOARCH="${{ matrix.goarch }}"
+
+          # Build using Makefile
+          make build-all
+
+          # Find and rename the built binary
+          BINARY_PATH=$(find ${{ env.BUILD_DIR }} -name "*${{ matrix.goos }}*${{ matrix.goarch }}*" -type f | head -1)
+          if [[ -z "$BINARY_PATH" ]]; then
+            # Fallback: build manually if Makefile target doesn't work as expected
+            go build -o ${{ env.BUILD_DIR }}/${{ matrix.binary_name }} \
+              -ldflags "-X main.version=${VERSION} -X main.buildDate=${BUILD_DATE} -X main.commitHash=${COMMIT_HASH}" \
+              ./cmd/reqtap
+          else
+            mv "$BINARY_PATH" "${{ env.BUILD_DIR }}/${{ matrix.binary_name }}"
+          fi
+
+      - name: Create archive
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            zip -r "${ARTIFACT_NAME}.zip" "${{ matrix.binary_name }}"
+          else
+            tar -czf "${ARTIFACT_NAME}.tar.gz" "${{ matrix.binary_name }}"
+          fi
+
+      - name: Generate checksum
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            FILE="${ARTIFACT_NAME}.zip"
+          else
+            FILE="${ARTIFACT_NAME}.tar.gz"
+          fi
+
+          sha256sum "$FILE" > "${FILE}.sha256"
+          echo "Generated checksum for ${FILE}"
+
+      - name: List build artifacts
+        run: |
+          echo "Build artifacts:"
+          ls -la ${{ env.BUILD_DIR }}/
+
+      - name: Upload build artifacts
+        if: needs.setup.outputs.upload_artifacts == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-*-${{ matrix.goos }}-${{ matrix.goarch }}*
+          retention-days: ${{ needs.setup.outputs.retention_days }}
+          compression-level: 0  # Don't compress artifacts that are already compressed
+
+      - name: Output artifact info
+        id: artifacts
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            FILE="${ARTIFACT_NAME}.zip"
+          else
+            FILE="${ARTIFACT_NAME}.tar.gz"
+          fi
+
+          echo "artifacts=${FILE},${FILE}.sha256" >> $GITHUB_OUTPUT
+
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [setup, build-matrix]
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.setup.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Date**: ${{ needs.setup.outputs.build_date }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ needs.setup.outputs.commit_hash }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifacts Uploaded**: ${{ needs.setup.outputs.upload_artifacts }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Download all artifacts
+        if: needs.setup.outputs.upload_artifacts == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: List all artifacts
+        if: needs.setup.outputs.upload_artifacts == 'true'
+        run: |
+          echo "All artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          find artifacts/ -type f -exec ls -lh {} \; >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Create combined checksums
+        if: needs.setup.outputs.upload_artifacts == 'true'
+        run: |
+          cd artifacts
+          find . -name "*.sha256" -exec cat {} \; | sort > ../checksums.txt
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Combined Checksums" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ../checksums.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined checksums
+        if: needs.setup.outputs.upload_artifacts == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: checksums.txt
+          retention-days: ${{ needs.setup.outputs.retention_days }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [setup, build-matrix]
+    if: always() && github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Build Notification
+        run: |
+          if [[ "${{ needs.build-matrix.result }}" == "success" ]]; then
+            echo "✅ Build completed successfully!"
+            echo "Version: ${{ needs.setup.outputs.version }}"
+          else
+            echo "❌ Build failed!"
+            echo "Build status: ${{ needs.build-matrix.result }}"
+            exit 1
+          fi

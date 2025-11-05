@@ -1,0 +1,56 @@
+# ReqTap configuration file example
+# Copy this file to config.yaml and modify configuration as needed
+
+# HTTP server configuration
+server:
+  # Listen port (1-65535)
+  port: 38888
+
+  # URL path prefix to listen
+  # "/" receives requests from all paths
+  # "/webhook/" receives only requests starting with /webhook/
+  path: "/"
+
+# Logging configuration
+log:
+  # Log level: trace, debug, info, warn, error, fatal, panic
+  level: "info"
+
+  # File logging configuration
+  file_logging:
+    # Enable file logging
+    enable: false
+
+    # Log file path
+    path: "./reqtap.log"
+
+    # Maximum size of a single log file (MB)
+    max_size_mb: 10
+
+    # Maximum number of old log files to retain
+    max_backups: 5
+
+    # Maximum retention days for old log files
+    max_age_days: 30
+
+    # Compress old log files
+    compress: true
+
+# Request forwarding configuration
+forward:
+  # List of target URLs to forward to
+  # Leave empty to disable forwarding and only log requests
+  urls: []
+  # urls:
+  #   - "http://localhost:3000/webhook"
+  #   - "https://api.example.com/ingest"
+  #   - "http://webhook.site/your-unique-id"
+
+  # Timeout for forwarding requests (seconds)
+  timeout: 30
+
+  # Number of retries on failure
+  max_retries: 3
+
+  # Maximum concurrent forwarding requests
+  max_concurrent: 10

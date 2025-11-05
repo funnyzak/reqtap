@@ -1,0 +1,203 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g., 1.0.0 or v1.0.0)"
+        required: true
+        type: string
+      draft:
+        description: "Create draft release"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  APP_NAME: "reqtap"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      is_draft: ${{ steps.release-type.outputs.draft }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Get tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          elif [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            echo "❌ No tag specified"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "✅ Using tag: $TAG"
+
+      - name: Extract version
+        id: version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Remove 'v' prefix if present for version
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Determine release type
+        id: release-type
+        run: |
+          DRAFT="${{ github.event.inputs.draft }}"
+          echo "draft=$DRAFT" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Release Artifacts
+    needs: validate
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.validate.outputs.tag }}
+      upload_artifacts: true
+      artifact_retention_days: 1  # Keep for just 1 day since we'll download immediately
+    permissions:
+      contents: read
+      packages: write
+
+  prepare-release:
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    outputs:
+      artifacts: ${{ steps.artifacts.outputs.files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        id: artifacts
+        run: |
+          mkdir -p release-assets
+
+          # Collect all binary archives and checksums
+          find artifacts/ -name "*.tar.gz" -exec cp {} release-assets/ \;
+          find artifacts/ -name "*.zip" -exec cp {} release-assets/ \;
+          find artifacts/ -name "*.sha256" -exec cp {} release-assets/ \;
+
+          # Copy additional files
+          cp config.yaml.example release-assets/
+          cp README.md release-assets/
+          cp LICENSE release-assets/
+
+          # Create combined checksums file
+          cd release-assets
+          find . -name "*.sha256" -exec cat {} \; | sort > checksums.txt
+          cd ..
+
+          # List all files
+          echo "Release assets:"
+          ls -la release-assets/
+
+          # Create file list for output
+          FILES=$(find release-assets/ -type f -not -path '*/\.*' | sort | tr '\n' ' ')
+          echo "files=${FILES}" >> $GITHUB_OUTPUT
+
+      - name: Verify artifacts
+        run: |
+          cd release-assets
+          echo "Verifying checksums..."
+          for checksum_file in *.sha256; do
+            if [[ -f "$checksum_file" ]]; then
+              echo "Checking $checksum_file"
+              sha256sum -c "$checksum_file" || echo "⚠️ Checksum verification failed for $checksum_file"
+            fi
+          done
+
+          echo "Verifying archives..."
+          for archive in *.tar.gz *.zip; do
+            if [[ -f "$archive" ]]; then
+              echo "Checking $archive"
+              if [[ "$archive" == *.tar.gz ]]; then
+                tar -tzf "$archive" >/dev/null && echo "✅ $archive is valid"
+              elif [[ "$archive" == *.zip ]]; then
+                unzip -t "$archive" >/dev/null && echo "✅ $archive is valid"
+              fi
+            fi
+          done
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/
+          retention-days: 7
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [validate, build, prepare-release]
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: "Release ${{ needs.validate.outputs.tag }}"
+          draft: ${{ needs.validate.outputs.is_draft }}
+          files: |
+            release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [validate, build, prepare-release, create-release]
+    if: always()
+    steps:
+      - name: Release Notification
+        run: |
+          if [[ "${{ needs.create-release.result }}" == "success" ]]; then
+            echo "✅ Release ${{ needs.validate.outputs.tag }} created successfully!"
+            echo "📦 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ needs.validate.outputs.tag }}"
+          else
+            echo "❌ Release failed!"
+            echo "Tag: ${{ needs.validate.outputs.tag }}"
+            echo "Validation: ${{ needs.validate.result }}"
+            echo "Build: ${{ needs.build.result }}"
+            echo "Prepare: ${{ needs.prepare-release.result }}"
+            echo "Create: ${{ needs.create-release.result }}"
+            exit 1
+          fi
+
+      - name: Update summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ needs.validate.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft**: ${{ needs.validate.outputs.is_draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ needs.validate.outputs.tag }}" >> $GITHUB_STEP_SUMMARY

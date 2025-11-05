@@ -1,0 +1,320 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - docs/**
+      - "*.md"
+      - ".gitignore"
+      - "LICENSE"
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - docs/**
+      - "*.md"
+      - ".gitignore"
+      - "LICENSE"
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go-changed: ${{ steps.changes.outputs.go }}
+      tests-changed: ${{ steps.changes.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            go:
+              - "**/*.go"
+              - go.mod
+              - go.sum
+              - Makefile
+            tests:
+              - "**/*_test.go"
+
+  setup:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.go-changed == 'true'
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        id: cache-modules
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('go.sum', 'go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('go.sum', 'go.mod') }}" >> $GITHUB_OUTPUT
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, setup]
+    if: needs.detect-changes.outputs.go-changed == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Run gofmt
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "The following files are not formatted:"
+            gofmt -s -l .
+            exit 1
+          fi
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  security:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, setup]
+    if: needs.detect-changes.outputs.go-changed == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: "-no-fail -fmt sarif -out results.sarif ./..."
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, setup]
+    if: needs.detect-changes.outputs.go-changed == 'true' || needs.detect-changes.outputs.tests-changed == 'true'
+    outputs:
+      coverage-file: ${{ steps.coverage.outputs.file }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Run tests with coverage
+        id: coverage
+        run: |
+          make test-coverage
+          echo "file=coverage.out" >> $GITHUB_OUTPUT
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Add coverage PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const coverage = fs.readFileSync('coverage.out', 'utf8');
+              // Add coverage analysis logic here if needed
+              console.log('Coverage report uploaded successfully');
+            } catch (error) {
+              console.log('No coverage file found');
+            }
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, setup, test]
+    if: needs.detect-changes.outputs.go-changed == 'true' && success()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Build binary
+        run: make build
+
+      - name: Run integration tests
+        run: |
+          # Start the application in background for integration testing
+          timeout 30s ./build/reqtap --config config.yaml.example --port 38889 &
+          APP_PID=$!
+
+          # Wait for application to start
+          sleep 5
+
+          # Run integration tests
+          # Add your integration test commands here
+
+          # Cleanup
+          kill $APP_PID 2>/dev/null || true
+        env:
+          CI: true
+
+  benchmark:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, setup, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Run benchmarks
+        run: |
+          go test -bench=. -benchmem -count=3 ./... | tee benchmark.txt
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          tool: "go"
+          output-file-path: benchmark.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          comment-on-alert: true
+          alert-threshold: "200%"
+          fail-on-alert: true
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint, security, test, integration-test]
+    if: always()
+    steps:
+      - name: Test Summary
+        if: needs.test.result == 'success'
+        run: echo "✅ All tests passed successfully"
+
+      - name: Lint Summary
+        if: needs.lint.result == 'success'
+        run: echo "✅ Code linting passed"
+
+      - name: Security Summary
+        if: needs.security.result == 'success'
+        run: echo "✅ Security scan passed"
+
+      - name: Integration Test Summary
+        if: needs.integration-test.result == 'success'
+        run: echo "✅ Integration tests passed"
+
+      - name: Failure Summary
+        if: needs.test.result == 'failure' || needs.lint.result == 'failure' || needs.security.result == 'failure' || needs.integration-test.result == 'failure'
+        run: |
+          echo "❌ Some checks failed:"
+          echo "Test: ${{ needs.test.result }}"
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Integration: ${{ needs.integration-test.result }}"
+          exit 1

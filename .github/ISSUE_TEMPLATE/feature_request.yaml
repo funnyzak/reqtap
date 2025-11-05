@@ -1,0 +1,123 @@
+name: 功能建议
+description: 提出新功能建议或改进方案
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # 感谢您的功能建议！
+
+        请通过填写此表单帮助我们更好地理解您的需求。详细的功能描述将帮助我们评估是否以及如何实现该功能。
+
+  - type: input
+    attributes:
+      label: 功能标题
+      description: 请简洁地描述您建议的功能
+      placeholder: 例如：添加批量导出功能
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 功能描述
+      description: |
+        请详细描述您希望添加的功能，包括：
+        - 功能的具体作用
+        - 主要的使用场景
+        - 预期的用户交互方式
+      placeholder: |
+        我希望能够添加一个批量导出功能，允许用户一次性导出多个文件...
+        这个功能主要用于解决...场景下的效率问题...
+        期望的用户操作流程是...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 问题背景
+      description: |
+        请说明当前遇到的问题或痛点，以及为什么需要这个功能。
+        - 这个功能解决了什么问题？
+        - 您目前是如何解决这个问题的？
+        - 现有的解决方案有什么不足？
+      placeholder: |
+        目前我需要逐个导出文件，这个过程非常耗时，尤其在处理大量文件时...
+        我尝试过使用...方法，但是存在...问题...
+        希望通过新功能能够提高效率并减少重复操作...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 使用场景
+      description: |
+        请描述具体的使用场景和用例，帮助我们理解功能的实际价值。
+      placeholder: |
+        场景1: 当用户需要处理100个以上的文件时，可以通过批量导出功能一键完成...
+        场景2: 在进行定期报告时，用户需要导出特定时间范围内的所有数据...
+        场景3: 团队协作者需要快速分享大量文件时...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 解决方案建议
+      description: |
+        如果您对如何实现这个功能有具体的想法，请详细说明。
+      placeholder: |
+        - 界面设计：在文件列表中添加"批量选择"按钮，选择后显示"导出选中"选项
+        - 技术实现：可以使用现有的导出API进行循环调用，或者创建新的批量导出端点
+        - 交互细节：支持多选文件类型，可以设置导出格式和保存位置
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 替代方案
+      description: |
+        请描述您考虑过的其他替代方案或现有的变通方法。
+      placeholder: |
+        我已经尝试过以下方法：
+        1. 使用脚本自动化导出过程，但需要技术背景
+        2. 第三方工具，但集成不便且存在安全风险
+        3. 手动逐个导出，但效率低下且容易出错
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: 功能优先级
+      description: 您认为这个功能的紧急程度如何？
+      options:
+        - 高 - 严重影响日常工作，急需解决
+        - 中 - 能够显著提升工作效率
+        - 低 - 有用但不是必需的
+        - 非常低 - 锦上添花的功能
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 附加信息
+      description: 任何其他相关的信息、参考资料或示例
+      placeholder: |
+        - 相关的文档链接
+        - 其他类似产品的实现参考
+        - 技术约束或特殊要求
+        - 可能影响的其他功能
+    validations:
+      required: false
+
+  - type: checkboxes
+    attributes:
+      label: 确认清单
+      description: 请确认您已经完成以下检查
+      options:
+        - label: 我已经搜索了现有的 Issues，确认这不是重复的建议
+          required: true
+        - label: 我已经阅读了项目的功能规划，确认这不是已有计划
+          required: true
+        - label: 我已经提供了足够详细的功能描述和使用场景
+          required: true
+        - label: 我理解这是一个建议，实现与否由项目团队决定
+          required: true

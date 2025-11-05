@@ -1,0 +1,107 @@
+name: 报告 Bug
+description: 报告软件缺陷或异常行为
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # 感谢您报告 Bug！
+
+        请通过填写此表单帮助我们复现和修复问题。提供详细的信息将有助于我们快速定位并解决问题。
+
+  - type: input
+    attributes:
+      label: Bug 标题
+      description: 请简洁地描述问题
+      placeholder: 例如：点击保存按钮时应用程序崩溃
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 问题描述
+      description: |
+        请详细描述遇到的问题，包括：
+        - 问题的具体表现
+        - 预期的行为和实际的行为
+        - 问题出现的频率（每次、偶尔、特定条件下等）
+      placeholder: |
+        当我执行...操作时，期望看到...结果，但实际上出现了...
+        这个问题在...情况下出现，频率大约是...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 复现步骤
+      description: |
+        请提供详细的步骤来重现此问题。如果问题无法稳定重现，请描述您观察到的模式。
+      placeholder: |
+        1. 打开应用程序
+        2. 点击...菜单
+        3. 输入...内容
+        4. 点击...按钮
+        5. 观察...现象
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 期望行为
+      description: 描述您期望应该发生什么
+      placeholder: 我期望点击保存按钮后，数据应该成功保存并显示成功消息
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 实际行为
+      description: 描述实际发生了什么
+      placeholder: 点击保存按钮后，应用程序崩溃并显示错误消息...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 环境信息
+      description: 请提供运行环境信息
+      placeholder: |
+        - 操作系统: Windows 11 / macOS 13.0 / Ubuntu 22.04
+        - 浏览器: Chrome 108 / Firefox 107 / Safari 16 (如适用)
+        - 应用版本: v1.2.3
+        - 其他相关信息: ...
+      value: |
+        - 操作系统:
+        - 浏览器:
+        - 应用版本:
+        - 其他相关信息:
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 错误截图或日志
+      description: 如果有错误截图、控制台日志或其他相关信息，请在此处提供
+      placeholder: 请粘贴相关日志、截图链接或文件内容
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 附加信息
+      description: 任何其他可能有助于解决问题的信息
+      placeholder: 例如：这个问题在其他设备上是否也会出现？是否是最近更新后开始出现的？
+    validations:
+      required: false
+
+  - type: checkboxes
+    attributes:
+      label: 确认清单
+      description: 请确认您已经完成以下检查
+      options:
+        - label: 我已经搜索了现有的 Issues，确认这不是重复报告
+          required: true
+        - label: 我已经提供了足够的详细信息来重现此问题
+          required: true
+        - label: 我已经提供了相关的环境信息
+          required: true
