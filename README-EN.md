@@ -1,10 +1,10 @@
 # ReqTap - HTTP Request Debugging Tool
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/funnyzak/reqtap/release.yml)](https://github.com/funnyzak/reqtap/actions)
+[![Image Size](https://img.shields.io/docker/image-size/funnyzak/reqtap)](https://hub.docker.com/r/funnyzak/reqtap/)
 [![GitHub Release](https://img.shields.io/github/v/release/funnyzak/reqtap)](https://github.com/funnyzak/reqtap/releases)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/funnyzak/reqtap/build.yml)](https://github.com/funnyzak/reqtap/actions)
-[![Docker Tags](https://img.shields.io/docker/v/funnyzak/reqtap?sort=semver&style=flat-square)](https://hub.docker.com/r/funnyzak/reqtap/)
 
 **English** | [中文文档](README.md)
 

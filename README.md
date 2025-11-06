@@ -1,10 +1,10 @@
 # ReqTap - HTTP 请求调试工具
 
-[![构建状态](https://img.shields.io/github/actions/workflow/status/funnyzak/reqtap/build.yml)](https://github.com/funnyzak/reqtap/actions)
-[![Go 版本](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
 [![许可证](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Go 版本](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
+[![构建状态](https://img.shields.io/github/actions/workflow/status/funnyzak/reqtap/release.yml)](https://github.com/funnyzak/reqtap/actions)
+[![Image Size](https://img.shields.io/docker/image-size/funnyzak/reqtap)](https://hub.docker.com/r/funnyzak/reqtap/)
 [![GitHub 发布](https://img.shields.io/github/v/release/funnyzak/reqtap)](https://github.com/funnyzak/reqtap/releases)
-[![Docker 版本](https://img.shields.io/docker/v/funnyzak/reqtap?sort=semver&style=flat-square)](https://hub.docker.com/r/funnyzak/reqtap/)
 
 [English](README-EN.md) | **中文**
 
