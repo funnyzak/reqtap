@@ -23,56 +23,7 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 
 ## Preview
 
-### Startup Interface
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                 ReqTap v1.0.0                               │
-│                    Request Inspector & Forwarding Tool                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  🚀 Listening on:   http://0.0.0.0:38888/                                  │
-│  🎯 Watching Path:   / (All Paths)                                          │
-│  📊 Log Level:       info                                                   │
-│                                                                             │
-│  🔀 Forward Targets:  1 Target(s)                                           │
-│     └─ http://localhost:3000/webhook                                        │
-│                                                                             │
-│  💾 File Logging:    Enabled                                                │
-│     └─ ./logs/reqtap.log (10MB, 5 backups, 30 days, compress: Enabled)    │
-│                                                                             │
-│  (Press Ctrl+C to stop)                                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Request Log Format
-
-Each HTTP request is displayed with a professional border format, including request numbers and detailed information:
-
-```text
-┌───────────────────────────── REQUEST #1 ───(2024-01-15T10:30:45+08:00)─┐
-│                                                                     │
-│  [POST] /webhook/payment [FROM: 192.168.1.100]                      │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Headers ───                                                     │
-│                                                                     │
-│   Content-Type: application/json                                    │
-│   Authorization: [REDACTED]                                        │
-│   X-Request-ID: req-123456                                         │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Body (85 B) ───                                                 │
-│                                                                     │
-│   {                                                                 │
-│     "order_id": "12345",                                            │
-│     "amount": 99.99,                                                │
-│     "currency": "USD"                                               │
-│   }                                                                 │
-│                                                                     │
-└──────────────────────────────── END OF REQUEST #1 ─────────────────┘
-```
+![Preview](https://github.com/user-attachments/assets/72b7a39b-45e5-4527-979a-b5e122d9e400)
 
 ## Quick Start
 
@@ -112,7 +63,7 @@ Examples:
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install
 
 # Install specific version
-curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install -v v1.0.0
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install -v 0.1.5
 
 # Update to latest version
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s update
@@ -329,7 +280,7 @@ GOOS=darwin GOARCH=amd64 go build -o reqtap-darwin-amd64 ./cmd/reqtap
 GOOS=windows GOARCH=amd64 go build -o reqtap-windows-amd64.exe ./cmd/reqtap
 
 # Build with version information
-go build -ldflags "-X main.version=v1.0.0" -o reqtap ./cmd/reqtap
+go build -ldflags "-X main.version=0.1.5" -o reqtap ./cmd/reqtap
 ```
 
 ## Development
