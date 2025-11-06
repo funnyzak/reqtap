@@ -78,21 +78,66 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 
 ### 安装
 
-#### 选项 1：下载预编译二进制文件（推荐）
+#### 选项 1：使用安装脚本（推荐）
+
+最简单的安装方式是使用我们的安装脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash
+```
+
+或者下载后手动运行：
+
+```bash
+# 下载脚本
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh -o install.sh
+
+# 运行脚本
+chmod +x install.sh
+./install.sh
+```
+
+脚本支持多个命令：
+
+- `install` - 安装 ReqTap（默认）
+- `update` - 更新到最新版本
+- `uninstall` - 卸载 ReqTap
+- `check` - 检查已安装版本和可用更新
+- `list` - 列出所有可用版本
+
+示例：
+
+```bash
+# 安装最新版本
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install
+
+# 安装指定版本
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install -v v1.0.0
+
+# 更新到最新版本
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s update
+```
+
+#### 选项 2：下载预编译二进制文件
 
 1. 访问 [发布页面](https://github.com/funnyzak/reqtap/releases)
 2. 下载适合您平台的二进制文件：
-   - `reqtap-linux-amd64` 用于 Linux
+   - `reqtap-linux-amd64` 用于 Linux x86_64
+   - `reqtap-linux-arm64` 用于 Linux ARM64
+   - `reqtap-linux-arm` 用于 Linux ARMv7
+   - `reqtap-linux-ppc64le` 用于 Linux PowerPC 64 LE
+   - `reqtap-linux-riscv64` 用于 Linux RISC-V 64
+   - `reqtap-linux-s390x` 用于 Linux IBM Z
    - `reqtap-darwin-amd64` 用于 macOS Intel
    - `reqtap-darwin-arm64` 用于 macOS Apple Silicon
-   - `reqtap-windows-amd64.exe` 用于 Windows
+   - `reqtap-windows-amd64.exe` 用于 Windows x86_64
 3. 添加可执行权限（Unix 系统）：
    ```bash
    chmod +x reqtap-*
    mv reqtap-* reqtap
    ```
 
-#### 选项 2：使用 Docker
+#### 选项 3：使用 Docker
 
 ```bash
 # 拉取最新镜像
@@ -105,7 +150,7 @@ docker run -p 38888:38888 funnyzak/reqtap:latest
 docker run -p 8080:38888 -v $(pwd)/config.yaml:/app/config.yaml funnyzak/reqtap:latest --config /app/config.yaml
 ```
 
-#### 选项 3：从源码构建
+#### 选项 4：从源码构建
 
 ```bash
 # 克隆仓库

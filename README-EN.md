@@ -78,21 +78,66 @@ Each HTTP request is displayed with a professional border format, including requ
 
 ### Installation
 
-#### Option 1: Download Pre-compiled Binary (Recommended)
+#### Option 1: Using Installation Script (Recommended)
+
+The easiest way to install ReqTap is using our installation script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash
+```
+
+Or download and run manually:
+
+```bash
+# Download the script
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh -o install.sh
+
+# Run it
+chmod +x install.sh
+./install.sh
+```
+
+The script supports multiple commands:
+
+- `install` - Install ReqTap (default)
+- `update` - Update to the latest version
+- `uninstall` - Uninstall ReqTap
+- `check` - Check installed version and available updates
+- `list` - List all available versions
+
+Examples:
+
+```bash
+# Install latest version
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install
+
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s install -v v1.0.0
+
+# Update to latest version
+curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s update
+```
+
+#### Option 2: Download Pre-compiled Binary
 
 1. Go to the [Releases](https://github.com/funnyzak/reqtap/releases) page
 2. Download the appropriate binary for your platform:
-   - `reqtap-linux-amd64` for Linux
+   - `reqtap-linux-amd64` for Linux x86_64
+   - `reqtap-linux-arm64` for Linux ARM64
+   - `reqtap-linux-arm` for Linux ARMv7
+   - `reqtap-linux-ppc64le` for Linux PowerPC 64 LE
+   - `reqtap-linux-riscv64` for Linux RISC-V 64
+   - `reqtap-linux-s390x` for Linux IBM Z
    - `reqtap-darwin-amd64` for macOS Intel
    - `reqtap-darwin-arm64` for macOS Apple Silicon
-   - `reqtap-windows-amd64.exe` for Windows
+   - `reqtap-windows-amd64.exe` for Windows x86_64
 3. Make it executable (Unix systems):
    ```bash
    chmod +x reqtap-*
    mv reqtap-* reqtap
    ```
 
-#### Option 2: Using Docker
+#### Option 3: Using Docker
 
 ```bash
 # Pull the latest image
@@ -105,7 +150,7 @@ docker run -p 38888:38888 funnyzak/reqtap:latest
 docker run -p 8080:38888 -v $(pwd)/config.yaml:/app/config.yaml funnyzak/reqtap:latest --config /app/config.yaml
 ```
 
-#### Option 3: Build from Source
+#### Option 4: Build from Source
 
 ```bash
 # Clone the repository
