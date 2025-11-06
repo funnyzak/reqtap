@@ -16,7 +16,7 @@ GO_FILES=$(shell find . -name "*.go" -type f)
 GO_MOD=$(shell go list -m)
 
 # Platform list
-PLATFORMS=linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+PLATFORMS=linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 linux/s390x linux/riscv64 linux/arm linux/ppc64le
 
 .PHONY: help build build-all test test-coverage clean install deps lint fmt check
 
