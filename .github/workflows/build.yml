@@ -127,6 +127,22 @@ jobs:
             goarch: amd64
             binary_name: reqtap.exe
             archive_ext: zip
+          - goos: linux
+            goarch: s390x
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: riscv64
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: arm
+            binary_name: reqtap
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: ppc64le
+            binary_name: reqtap
+            archive_ext: tar.gz
       fail-fast: false
     outputs:
       artifacts: ${{ steps.artifacts.outputs.artifacts }}
