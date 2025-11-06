@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
@@ -69,10 +70,43 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Get configuration file path
 	configPath, _ := cmd.Flags().GetString("config")
 
-	// Load configuration
-	cfg, err := config.LoadConfig(configPath)
+	// Load configuration using global viper
+	cfg, err := config.LoadConfig(configPath, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Override with command line arguments (command line has highest priority)
+	// This ensures command line flags override config file values
+	if port, err := cmd.Flags().GetInt("port"); err == nil && port != 0 {
+		cfg.Server.Port = port
+	}
+	if path, err := cmd.Flags().GetString("path"); err == nil && path != "" {
+		cfg.Server.Path = path
+	}
+	if logLevel, err := cmd.Flags().GetString("log-level"); err == nil && logLevel != "" {
+		cfg.Log.Level = logLevel
+	}
+	if logFileEnable, err := cmd.Flags().GetBool("log-file-enable"); err == nil && cmd.Flags().Changed("log-file-enable") {
+		cfg.Log.FileLogging.Enable = logFileEnable
+	}
+	if logFilePath, err := cmd.Flags().GetString("log-file-path"); err == nil && logFilePath != "" {
+		cfg.Log.FileLogging.Path = logFilePath
+	}
+	if logFileSize, err := cmd.Flags().GetInt("log-file-max-size"); err == nil && logFileSize != 0 {
+		cfg.Log.FileLogging.MaxSizeMB = logFileSize
+	}
+	if logFileBackups, err := cmd.Flags().GetInt("log-file-max-backups"); err == nil && logFileBackups != 0 {
+		cfg.Log.FileLogging.MaxBackups = logFileBackups
+	}
+	if logFileAge, err := cmd.Flags().GetInt("log-file-max-age"); err == nil && logFileAge != 0 {
+		cfg.Log.FileLogging.MaxAgeDays = logFileAge
+	}
+	if logFileCompress, err := cmd.Flags().GetBool("log-file-compress"); err == nil && cmd.Flags().Changed("log-file-compress") {
+		cfg.Log.FileLogging.Compress = logFileCompress
+	}
+	if forwardURLs, err := cmd.Flags().GetStringSlice("forward-url"); err == nil && len(forwardURLs) > 0 {
+		cfg.Forward.URLs = forwardURLs
 	}
 
 	// Validate configuration
@@ -98,19 +132,88 @@ func showVersion(cmd *cobra.Command, args []string) {
 }
 
 func printStartupBanner(cfg *config.Config, log logger.Logger) {
-	fmt.Println()
-	fmt.Println("══════════════════════════════════════════════════════════════════════")
-	fmt.Println("                              ReqTap")
-	fmt.Printf("                         HTTP Request Debugging Tool v%s\n", version)
-	fmt.Println("══════════════════════════════════════════════════════════════════════")
-	fmt.Printf("Listen Address: http://0.0.0.0:%d%s\n", cfg.Server.Port, cfg.Server.Path)
+	// Collect all content lines to display
+	var lines []string
+
+	// Title lines
+	titleLine := fmt.Sprintf("ReqTap v%s", version)
+	subtitleLine := "Request Inspector & Forwarding Tool"
+
+	// Empty line
+	lines = append(lines, titleLine, subtitleLine, "")
+
+	// Listening information
+	watchPath := cfg.Server.Path
+	if watchPath == "/" {
+		watchPath = "/ (All Paths)"
+	}
+	lines = append(lines, fmt.Sprintf("🚀 Listening on:   http://0.0.0.0:%d%s", cfg.Server.Port, cfg.Server.Path))
+	lines = append(lines, fmt.Sprintf("🎯 Watching Path:   %s", watchPath))
+	lines = append(lines, fmt.Sprintf("📊 Log Level:       %s", cfg.Log.Level))
+
+	// Forward target information
+	lines = append(lines, "")
 	if len(cfg.Forward.URLs) > 0 {
-		fmt.Printf("Forward Targets: %v\n", cfg.Forward.URLs)
+		lines = append(lines, fmt.Sprintf("🔀 Forward Targets:  %d Target(s)", len(cfg.Forward.URLs)))
+		for _, url := range cfg.Forward.URLs {
+			lines = append(lines, fmt.Sprintf("   └─ %s", url))
+		}
+	} else {
+		lines = append(lines, "🔀 Forward Targets:  None")
 	}
+
+	// File logging information
+	lines = append(lines, "")
 	if cfg.Log.FileLogging.Enable {
-		fmt.Printf("Log File: %s\n", cfg.Log.FileLogging.Path)
+		lines = append(lines, "💾 File Logging:    Enabled")
+		compress := "Disabled"
+		if cfg.Log.FileLogging.Compress {
+			compress = "Enabled"
+		}
+		lines = append(lines, fmt.Sprintf("   └─ %s (%dMB, %d backups, %d days, compress: %s)",
+			cfg.Log.FileLogging.Path,
+			cfg.Log.FileLogging.MaxSizeMB,
+			cfg.Log.FileLogging.MaxBackups,
+			cfg.Log.FileLogging.MaxAgeDays,
+			compress))
+	} else {
+		lines = append(lines, "💾 File Logging:    Disabled")
 	}
-	fmt.Println("══════════════════════════════════════════════════════════════════════")
+
+	// Bottom information
+	lines = append(lines, "")
+	lines = append(lines, "(Press Ctrl+C to stop)")
+
+	// Calculate maximum line length
+	maxLength := 0
+	for _, line := range lines {
+		// Calculate display width (handling Chinese characters and emoji)
+		lineLength := calculateDisplayWidth(line)
+		if lineLength > maxLength {
+			maxLength = lineLength
+		}
+	}
+
+	// Set minimum width and margins
+	boxWidth := maxLength + 4 // 2 characters margin on left and right
+	if boxWidth < 50 {
+		boxWidth = 50
+	}
+
+	// Print banner
+	fmt.Println()
+	printBoxTop(boxWidth)
+	printBoxContent(titleLine, boxWidth, true)    // Center title
+	printBoxContent(subtitleLine, boxWidth, true) // Center subtitle
+	printBoxSeparator(boxWidth)
+
+	// Print content lines (starting from line 4, skipping title and subtitle)
+	for i := 3; i < len(lines); i++ {
+		line := lines[i]
+		printBoxContent(line, boxWidth, false)
+	}
+
+	printBoxBottom(boxWidth)
 	fmt.Println()
 
 	log.Info("ReqTap starting",
@@ -126,4 +229,79 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+// calculateDisplayWidth calculates the display width of a string, handling Chinese characters and emoji
+func calculateDisplayWidth(s string) int {
+	width := 0
+	for _, r := range s {
+		// Determine character width
+		if r <= 127 {
+			// ASCII character, width is 1
+			width++
+		} else if (r >= 0x1F600 && r <= 0x1F64F) || // Emoji emoticons
+			(r >= 0x1F300 && r <= 0x1F5FF) || // Other symbols
+			(r >= 0x1F680 && r <= 0x1F6FF) || // Transport and map symbols
+			(r >= 0x2600 && r <= 0x26FF) || // Other symbols
+			(r >= 0x2700 && r <= 0x27BF) { // Decorative symbols
+			// Emoji, width is 2
+			width += 2
+		} else if (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
+			(r >= 0x3400 && r <= 0x4DBF) || // CJK Extension A
+			(r >= 0x20000 && r <= 0x2A6DF) || // CJK Extension B
+			(r >= 0x2A700 && r <= 0x2B73F) || // CJK Extension C
+			(r >= 0x2B740 && r <= 0x2B81F) || // CJK Extension D
+			(r >= 0x2B820 && r <= 0x2CEAF) || // CJK Extension E
+			(r >= 0x2CEB0 && r <= 0x2EBEF) { // CJK Extension F
+			// Chinese character, width is 2
+			width += 2
+		} else {
+			// Other Unicode characters, usually width is 1
+			width++
+		}
+	}
+	return width
+}
+
+// printBoxTop prints the top border of the box
+func printBoxTop(width int) {
+	fmt.Printf("┌%s┐\n", strings.Repeat("─", width-2))
+}
+
+// printBoxBottom prints the bottom border of the box
+func printBoxBottom(width int) {
+	fmt.Printf("└%s┘\n", strings.Repeat("─", width-2))
+}
+
+// printBoxSeparator prints the separator line of the box
+func printBoxSeparator(width int) {
+	fmt.Printf("├%s┤\n", strings.Repeat("─", width-2))
+}
+
+// printBoxContent prints the content line of the box
+func printBoxContent(content string, boxWidth int, center bool) {
+	// Calculate the display width of the content
+	contentWidth := calculateDisplayWidth(content)
+
+	// Calculate required padding space
+	padding := boxWidth - 2 - contentWidth // Subtract 1 character for left and right borders
+	if padding < 0 {
+		padding = 0
+	}
+
+	// Generate padding strings
+	leftPad := ""
+	rightPad := ""
+
+	if center {
+		// Center alignment
+		leftPad = strings.Repeat(" ", padding/2)
+		rightPad = strings.Repeat(" ", padding-padding/2)
+	} else {
+		// Left alignment
+		leftPad = "  " // Fixed 2-space indentation on the left
+		rightPad = strings.Repeat(" ", padding-2)
+	}
+
+	fmt.Printf("│%s%s%s│\n", leftPad, content, rightPad)
 }

@@ -8,7 +8,7 @@ import (
 func TestLoadConfig(t *testing.T) {
 	// Test default configuration
 	t.Run("Default config", func(t *testing.T) {
-		cfg, err := LoadConfig("")
+		cfg, err := LoadConfig("", nil)
 		if err != nil {
 			t.Fatalf("Failed to load default config: %v", err)
 		}
@@ -242,7 +242,7 @@ forward:
 	tmpFile.Close()
 
 	// Load configuration
-	cfg, err := LoadConfig(tmpFile.Name())
+	cfg, err := LoadConfig(tmpFile.Name(), nil)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
@@ -279,7 +279,7 @@ forward:
 
 func TestLoadConfigInvalidFile(t *testing.T) {
 	// Test that non-existent configuration file should return error
-	cfg, err := LoadConfig("/nonexistent/path/config.yaml")
+	cfg, err := LoadConfig("/nonexistent/path/config.yaml", nil)
 	if err == nil {
 		t.Error("Expected error for missing config file")
 	}
