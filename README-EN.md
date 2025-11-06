@@ -82,10 +82,15 @@ Each HTTP request is displayed with a professional border format, including requ
 
 1. Go to the [Releases](https://github.com/funnyzak/reqtap/releases) page
 2. Download the appropriate binary for your platform:
-   - `reqtap-linux-amd64` for Linux
+   - `reqtap-linux-amd64` for Linux x86_64
+   - `reqtap-linux-arm64` for Linux ARM64
+   - `reqtap-linux-arm` for Linux ARMv7
+   - `reqtap-linux-ppc64le` for Linux PowerPC 64 LE
+   - `reqtap-linux-riscv64` for Linux RISC-V 64
+   - `reqtap-linux-s390x` for Linux IBM Z
    - `reqtap-darwin-amd64` for macOS Intel
    - `reqtap-darwin-arm64` for macOS Apple Silicon
-   - `reqtap-windows-amd64.exe` for Windows
+   - `reqtap-windows-amd64.exe` for Windows x86_64
 3. Make it executable (Unix systems):
    ```bash
    chmod +x reqtap-*

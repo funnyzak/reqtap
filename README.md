@@ -82,10 +82,15 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 
 1. 访问 [发布页面](https://github.com/funnyzak/reqtap/releases)
 2. 下载适合您平台的二进制文件：
-   - `reqtap-linux-amd64` 用于 Linux
+   - `reqtap-linux-amd64` 用于 Linux x86_64
+   - `reqtap-linux-arm64` 用于 Linux ARM64
+   - `reqtap-linux-arm` 用于 Linux ARMv7
+   - `reqtap-linux-ppc64le` 用于 Linux PowerPC 64 LE
+   - `reqtap-linux-riscv64` 用于 Linux RISC-V 64
+   - `reqtap-linux-s390x` 用于 Linux IBM Z
    - `reqtap-darwin-amd64` 用于 macOS Intel
    - `reqtap-darwin-arm64` 用于 macOS Apple Silicon
-   - `reqtap-windows-amd64.exe` 用于 Windows
+   - `reqtap-windows-amd64.exe` 用于 Windows x86_64
 3. 添加可执行权限（Unix 系统）：
    ```bash
    chmod +x reqtap-*
