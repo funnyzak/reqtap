@@ -1,13 +1,13 @@
 name: Build
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - docs/**
-      - "*.md"
-      - ".gitignore"
-      - "LICENSE"
+  # push:
+  #   branches: [ main ]
+  #   paths-ignore:
+  #     - docs/**
+  #     - "*.md"
+  #     - ".gitignore"
+  #     - "LICENSE"
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -182,7 +182,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ env.BUILD_DIR }}
-          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
             zip -r "${ARTIFACT_NAME}.zip" "${{ matrix.binary_name }}"
@@ -194,7 +194,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ env.BUILD_DIR }}
-          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
             FILE="${ARTIFACT_NAME}.zip"
@@ -215,7 +215,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-*-${{ matrix.goos }}-${{ matrix.goarch }}*
+          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}*
           retention-days: ${{ needs.setup.outputs.retention_days }}
           compression-level: 0  # Don't compress artifacts that are already compressed
 
@@ -223,7 +223,7 @@ jobs:
         id: artifacts
         run: |
           cd ${{ env.BUILD_DIR }}
-          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ needs.setup.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
             FILE="${ARTIFACT_NAME}.zip"

@@ -45,8 +45,11 @@ type ForwardConfig struct {
 }
 
 // LoadConfig load configuration
-func LoadConfig(configPath string) (*Config, error) {
-	v := viper.New()
+// If v is nil, a new viper instance will be created
+func LoadConfig(configPath string, v *viper.Viper) (*Config, error) {
+	if v == nil {
+		v = viper.New()
+	}
 
 	// Set default values
 	setDefaults(v)
@@ -88,14 +91,17 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	// Ensure zero-value fields use default values (Unmarshal doesn't apply defaults to zero-value fields)
+	// Also override with command line flags if they are set (command line flags have highest priority)
 	applyDefaults(&config, v)
 
 	return &config, nil
 }
 
 // applyDefaults apply default values to zero-value fields in the struct
+// This only applies defaults for fields that don't have command line flags.
+// Command line flags are handled separately in main.go to ensure highest priority.
 func applyDefaults(cfg *Config, v *viper.Viper) {
-	// Server configuration
+	// Server configuration - only apply defaults if zero (command line handled in main.go)
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = v.GetInt("server.port")
 	}
@@ -103,43 +109,32 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 		cfg.Server.Path = v.GetString("server.path")
 	}
 
-	// Log configuration
+	// Log configuration - only apply defaults if zero (command line handled in main.go)
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = v.GetString("log.level")
 	}
-	// For nested structures, get values directly from Viper if available
-	if v.IsSet("log.file_logging") {
-		cfg.Log.FileLogging.Enable = v.GetBool("log.file_logging.enable")
-		if cfg.Log.FileLogging.Path == "" {
-			cfg.Log.FileLogging.Path = v.GetString("log.file_logging.path")
-		}
-		if cfg.Log.FileLogging.MaxSizeMB == 0 {
-			cfg.Log.FileLogging.MaxSizeMB = v.GetInt("log.file_logging.max_size_mb")
-		}
-		if cfg.Log.FileLogging.MaxBackups == 0 {
-			cfg.Log.FileLogging.MaxBackups = v.GetInt("log.file_logging.max_backups")
-		}
-		if cfg.Log.FileLogging.MaxAgeDays == 0 {
-			cfg.Log.FileLogging.MaxAgeDays = v.GetInt("log.file_logging.max_age_days")
-		}
-		cfg.Log.FileLogging.Compress = v.GetBool("log.file_logging.compress")
-	} else {
-		// If not set, apply default values
-		if cfg.Log.FileLogging.Path == "" {
-			cfg.Log.FileLogging.Path = v.GetString("log.file_logging.path")
-		}
-		if cfg.Log.FileLogging.MaxSizeMB == 0 {
-			cfg.Log.FileLogging.MaxSizeMB = v.GetInt("log.file_logging.max_size_mb")
-		}
-		if cfg.Log.FileLogging.MaxBackups == 0 {
-			cfg.Log.FileLogging.MaxBackups = v.GetInt("log.file_logging.max_backups")
-		}
-		if cfg.Log.FileLogging.MaxAgeDays == 0 {
-			cfg.Log.FileLogging.MaxAgeDays = v.GetInt("log.file_logging.max_age_days")
-		}
+
+	// File logging configuration - only apply defaults if zero (command line handled in main.go)
+	// Note: For bool fields, we always use viper's value since it correctly handles
+	// both config file values and defaults. Viper.GetBool() will return the value from
+	// config file if set, otherwise the default value.
+	cfg.Log.FileLogging.Enable = v.GetBool("log.file_logging.enable")
+	cfg.Log.FileLogging.Compress = v.GetBool("log.file_logging.compress")
+	if cfg.Log.FileLogging.Path == "" {
+		cfg.Log.FileLogging.Path = v.GetString("log.file_logging.path")
+	}
+	if cfg.Log.FileLogging.MaxSizeMB == 0 {
+		cfg.Log.FileLogging.MaxSizeMB = v.GetInt("log.file_logging.max_size_mb")
+	}
+	if cfg.Log.FileLogging.MaxBackups == 0 {
+		cfg.Log.FileLogging.MaxBackups = v.GetInt("log.file_logging.max_backups")
+	}
+	if cfg.Log.FileLogging.MaxAgeDays == 0 {
+		cfg.Log.FileLogging.MaxAgeDays = v.GetInt("log.file_logging.max_age_days")
 	}
 
-	// Forward configuration
+	// Forward configuration - command line handled in main.go for URLs
+	// These don't have command line flags, so only apply defaults if zero
 	if cfg.Forward.Timeout == 0 {
 		cfg.Forward.Timeout = v.GetInt("forward.timeout")
 	}

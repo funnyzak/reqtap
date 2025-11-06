@@ -38,3 +38,5 @@ go.work.sum
 /build
 
 *.log
+
+/reqtap
