@@ -190,21 +190,6 @@ jobs:
             tar -czf "${ARTIFACT_NAME}.tar.gz" "${{ matrix.binary_name }}"
           fi
 
-      - name: Generate checksum
-        shell: bash
-        run: |
-          cd ${{ env.BUILD_DIR }}
-          ARTIFACT_NAME="${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-
-          if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            FILE="${ARTIFACT_NAME}.zip"
-          else
-            FILE="${ARTIFACT_NAME}.tar.gz"
-          fi
-
-          sha256sum "$FILE" > "${FILE}.sha256"
-          echo "Generated checksum for ${FILE}"
-
       - name: List build artifacts
         run: |
           echo "Build artifacts:"
@@ -215,7 +200,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}*
+          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}
           retention-days: ${{ needs.setup.outputs.retention_days }}
           compression-level: 0  # Don't compress artifacts that are already compressed
 
@@ -231,7 +216,7 @@ jobs:
             FILE="${ARTIFACT_NAME}.tar.gz"
           fi
 
-          echo "artifacts=${FILE},${FILE}.sha256" >> $GITHUB_OUTPUT
+          echo "artifacts=${FILE}" >> $GITHUB_OUTPUT
 
   build-summary:
     runs-on: ubuntu-latest
@@ -265,7 +250,7 @@ jobs:
         if: needs.setup.outputs.upload_artifacts == 'true'
         run: |
           cd artifacts
-          find . -name "*.sha256" -exec cat {} \; | sort > ../checksums.txt
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec sha256sum {} \; | sort > ../checksums.txt
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Combined Checksums" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
