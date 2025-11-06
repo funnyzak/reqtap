@@ -131,6 +131,7 @@ jobs:
           # Verify checksums using checksums.txt from build workflow
           if [[ -f checksums.txt ]]; then
             echo "Verifying checksums using checksums.txt..."
+            sed -i 's|\./[^/]*/||g' checksums.txt
             sha256sum -c checksums.txt || (echo "❌ Checksum verification failed" && exit 1)
             echo "✅ All checksums verified successfully"
           else
