@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReqTap · Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.staticfile.org/tailwindcss/2.2.19/tailwind.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="./css/app.css" />
+  <!--REQTAP_CONFIG-->
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-6 text-slate-100 font-inter antialiased auth-page">
+  <div class="w-full max-w-md p-8 auth-card">
+    <div class="text-center mb-8">
+      <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300 mb-3">
+        <i class="fa-solid fa-shield-halved text-2xl"></i>
+      </div>
+      <h1 class="text-2xl font-semibold">ReqTap Console</h1>
+      <p class="text-slate-400 text-sm mt-1">Sign in to orchestrate your live request monitor.</p>
+    </div>
+
+    <form id="login-form" class="space-y-5">
+      <div>
+        <label class="text-sm text-slate-400 mb-1 block">Username</label>
+        <input type="text" name="username" required autocomplete="username" placeholder="admin"
+          class="control-input" />
+      </div>
+      <div>
+        <label class="text-sm text-slate-400 mb-1 block">Password</label>
+        <input name="password" required type="password" autocomplete="current-password" placeholder="••••••••"
+          class="control-input" />
+      </div>
+      <button type="submit"
+        class="w-full rounded-xl bg-emerald-500/80 hover:bg-emerald-400 text-slate-900 font-semibold py-2 transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        Login
+      </button>
+    </form>
+
+    <p id="login-message" class="text-center text-sm text-red-300 mt-4 h-6"></p>
+
+    <div class="auth-footer">
+      <p>
+        Repo:
+        <a class="subtle-link" href="https://github.com/funnyzak/reqtap" target="_blank" rel="noreferrer noopener">
+          github.com/funnyzak/reqtap
+        </a>
+      </p>
+      <p>Author: <span class="text-slate-100 font-semibold">funnyzak</span></p>
+    </div>
+  </div>
+
+  <script type="module" src="./js/login.js"></script>
+</body>
+
+</html>

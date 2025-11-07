@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -36,6 +37,42 @@ func TestLoadConfig(t *testing.T) {
 
 		if cfg.Forward.MaxConcurrent != 10 {
 			t.Errorf("Expected default max concurrent 10, got %d", cfg.Forward.MaxConcurrent)
+		}
+
+		if !cfg.Web.Enable {
+			t.Errorf("Expected web console enabled by default")
+		}
+
+		if cfg.Web.Path != "/web" {
+			t.Errorf("Expected default web path '/web', got %s", cfg.Web.Path)
+		}
+
+		if cfg.Web.AdminPath != "/api" {
+			t.Errorf("Expected default web admin path '/api', got %s", cfg.Web.AdminPath)
+		}
+
+		if cfg.Web.MaxRequests != 500 {
+			t.Errorf("Expected default max requests 500, got %d", cfg.Web.MaxRequests)
+		}
+
+		if !cfg.Web.Auth.Enable {
+			t.Errorf("Expected web auth enabled by default")
+		}
+
+		if cfg.Web.Auth.SessionTimeout != 24*time.Hour {
+			t.Errorf("Expected default session timeout 24h, got %s", cfg.Web.Auth.SessionTimeout)
+		}
+
+		if len(cfg.Web.Auth.Users) == 0 {
+			t.Fatalf("Expected default auth users to be populated")
+		}
+
+		if !cfg.Web.Export.Enable {
+			t.Errorf("Expected export enabled by default")
+		}
+
+		if len(cfg.Web.Export.Formats) == 0 {
+			t.Errorf("Expected default export formats")
 		}
 	})
 }
@@ -180,6 +217,60 @@ func TestConfigValidation(t *testing.T) {
 			},
 			expectError: true,
 			errorMsg:    "forward max concurrent must be at least 1",
+		},
+		{
+			name: "Web enabled but missing path",
+			config: &Config{
+				Server: ServerConfig{
+					Port: 8080,
+					Path: "/",
+				},
+				Log: LogConfig{
+					Level: "info",
+				},
+				Forward: ForwardConfig{
+					MaxConcurrent: 1,
+				},
+				Web: WebConfig{
+					Enable:      true,
+					Path:        "",
+					AdminPath:   "/api",
+					MaxRequests: 100,
+					Auth: WebAuthConfig{
+						Enable: false,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "web path cannot be empty",
+		},
+		{
+			name: "Web auth enabled but no users",
+			config: &Config{
+				Server: ServerConfig{
+					Port: 8080,
+					Path: "/",
+				},
+				Log: LogConfig{
+					Level: "info",
+				},
+				Forward: ForwardConfig{
+					MaxConcurrent: 1,
+				},
+				Web: WebConfig{
+					Enable:      true,
+					Path:        "/web",
+					AdminPath:   "/api",
+					MaxRequests: 100,
+					Auth: WebAuthConfig{
+						Enable:         true,
+						SessionTimeout: time.Hour,
+						Users:          []WebUserConfig{},
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "web auth requires at least one user",
 		},
 	}
 

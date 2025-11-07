@@ -18,12 +18,19 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 - **Async Forwarding** - High-performance asynchronous request forwarding to multiple target URLs
 - **Comprehensive Logging** - Dual logging system with console output and structured file logging with automatic rotation
 - **Flexible Configuration** - Support for command-line arguments, YAML configuration files, and environment variables
+- **Realtime Web Console** - Session-based dashboard with WebSocket streaming, filtering/search and one-click JSON/CSV export
 - **Cross-Platform** - Single executable with native support for Windows, macOS, and Linux
 - **Zero Dependencies** - Self-contained binary with no external runtime requirements
 
 ## Preview
 
-![Preview](https://github.com/user-attachments/assets/72b7a39b-45e5-4527-979a-b5e122d9e400)
+### Running
+
+![Running Preview](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
+
+### Real-time Console
+
+![Real-time Console](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
 
 ## Quick Start
 
@@ -31,7 +38,7 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 
 #### Option 1: Using Installation Script (Recommended)
 
-The easiest way to install ReqTap is using our installation script:
+The easiest way to install ReqTap is using installation script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash
@@ -125,7 +132,7 @@ go build -o reqtap ./cmd/reqtap
 
 2. **Custom port and path**
    ```bash
-   ./reqtap --port 8080 --path /webhook/
+   ./reqtap --port 8080 --path /reqtap/
    ```
 
 3. **Enable file logging**
@@ -138,9 +145,32 @@ go build -o reqtap ./cmd/reqtap
    ./reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
    ```
 
+## Web Dashboard
+
+ReqTap ships with a zero-dependency web console that is enabled by default. Once the server is running you can open `http://<host>:<port>/web` to:
+
+- Log in with session-based authentication (default accounts: `admin/admin123`, `user/user123`)
+- Watch incoming requests in real-time via WebSocket streaming
+- Filter/search by HTTP method, path, query, headers, or origin IP
+- Inspect full request details (headers + body) in a modal panel
+- Export the current view as JSON or CSV with a single click
+
+APIs powering the dashboard live under the configurable `web.admin_path` (defaults to `/api`):
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `POST` | `/api/auth/login` | Authenticate and create a session cookie |
+| `POST` | `/api/auth/logout` | Invalidate the current session |
+| `GET`  | `/api/auth/me` | Retrieve current user info |
+| `GET`  | `/api/requests` | List recent requests with optional `search`, `method`, `limit`, `offset` |
+| `GET`  | `/api/export` | Export filtered requests as JSON/CSV |
+| `GET`  | `/api/ws` | WebSocket stream broadcasting every new request |
+
+All paths are fully configurable through the `web` section of `config.yaml`, so the dashboard can be mounted under any prefix or disabled entirely.
+
 5. **Quick test with curl**
    ```bash
-   curl -X POST http://localhost:38888/webhook \
+   curl -X POST http://localhost:38888/reqtap \
      -H "Content-Type: application/json" \
      -d '{"message": "Hello, ReqTap!"}'
    ```
@@ -201,6 +231,26 @@ forward:
   timeout: 30           # Request timeout in seconds
   max_retries: 3        # Maximum retry attempts
   max_concurrent: 10    # Maximum concurrent forwards
+
+# Web Console Configuration
+web:
+  enable: true
+  path: "/web"
+  admin_path: "/api"
+  max_requests: 500
+  auth:
+    enable: true
+    session_timeout: 24h
+    users:
+      - username: "admin"
+        password: "admin123"
+        role: "admin"
+      - username: "user"
+        password: "user123"
+        role: "viewer"
+  export:
+    enable: true
+    formats: ["json", "csv"]
 ```
 
 **Usage with configuration file:**
@@ -215,7 +265,7 @@ All configuration options can be set via environment variables with the `REQTAP_
 ```bash
 # Server settings
 export REQTAP_SERVER_PORT=8080
-export REQTAP_SERVER_PATH="/webhook"
+export REQTAP_SERVER_PATH="/reqtap"
 
 # Logging settings
 export REQTAP_LOG_LEVEL=debug
@@ -225,6 +275,11 @@ export REQTAP_LOG_FILE_PATH="/var/log/reqtap.log"
 # Forwarding settings
 export REQTAP_FORWARD_URLS="http://localhost:3000/webhook,https://api.example.com/ingest"
 export REQTAP_FORWARD_TIMEOUT=30
+
+# Web console settings
+export REQTAP_WEB_ENABLE=true
+export REQTAP_WEB_PATH="/console"
+export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
 
 # Start ReqTap
 ./reqtap
@@ -238,6 +293,35 @@ Configuration is loaded in the following order (highest priority first):
 2. **Environment variables**
 3. **Configuration file**
 4. **Default values**
+
+## Architecture
+
+ReqTap is split into several loosely coupled internal packages, each responsible for a clear portion of the request lifecycle:
+
+- **CLI bootstrap (`cmd/reqtap`)** – Cobra/Viper combine command-line flags, environment variables, and YAML files, validate the final config, and print a startup banner before the server launches.
+- **Configuration & logging (`internal/config`, `internal/logger`)** – `config` owns defaults, merging rules, and validation; `logger` wraps zerolog + lumberjack so both the terminal and the rotating log file share the same structured output API.
+- **HTTP service layer (`internal/server`)** – A Gorilla Mux router receives traffic, and the `Handler` returns 200 OK as soon as the body is read, while the heavy work continues inside background goroutines.
+- **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, dashboard persistence/WebSocket streaming, and multi-target forwarding.
+- **Forwarder (`internal/forwarder`)** – Maintains a bounded worker pool, applies context timeouts plus exponential backoff retries, mirrors headers that matter, and injects `X-ReqTap-*` tracing headers for every target.
+- **Web console (`internal/web`, `internal/static`)** – Includes a ring-buffer `RequestStore`, session-based auth manager, WebSocket hub, JSON/CSV export helpers, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
+- **Observability** – Every component logs through the shared `logger.Logger` interface so troubleshooting looks identical in the terminal and in file logs.
+
+```text
+Clients --> gorilla/mux Router --> Handler --> immediate 200 OK
+                           |
+                           |-- ConsolePrinter (colorized logging / redaction)
+                           |-- Web Service (RequestStore + REST + WebSocket)
+                           `-- Forwarder (worker pool + retries --> Targets)
+```
+
+### Request lifecycle
+
+1. The CLI entrypoint resolves flags/env/config, then constructs the Logger, Forwarder, ConsolePrinter, and optional Web Service before starting the HTTP server.
+2. Gorilla Mux captures any request under `server.path`. The handler reads the full body, closes it, and instantly sends `200 OK` with `ok` so clients never block on downstream work.
+3. The handler converts the request into `RequestData`, emits a structured log, and hands the record to the Web Service, which stores it in a ring buffer and notifies WebSocket subscribers.
+4. The console printer renders a width-aware, colorized view, detects binary payloads, and automatically redacts sensitive headers (Authorization, Cookie, etc.).
+5. If forwarding is configured, the forwarder concurrently POSTs the payload to every target obeying timeout, concurrency, and retry limits. 4xx/5xx responses trigger exponential backoff retries and detailed logs.
+6. The goroutine waits for printing/storage/forwarding to finish via `WaitGroup`, then exits. The client response is unaffected because it was already flushed in step 2.
 
 ## Building from Source
 
@@ -313,133 +397,23 @@ go build -ldflags "-X main.version=0.1.5" -o reqtap ./cmd/reqtap
 
 ```
 reqtap/
-├── cmd/reqtap/              # Application entry point
-│   └── main.go             # Main application file
-├── internal/               # Internal packages
-│   ├── config/            # Configuration management
-│   │   ├── config.go      # Configuration structures and loading
-│   │   └── loader.go      # Configuration file loader
-│   ├── server/            # HTTP server implementation
-│   │   ├── server.go      # Main HTTP server
-│   │   └── handler.go     # Request handlers
-│   ├── printer/           # Console output formatting
-│   │   ├── printer.go     # Pretty printing logic
-│   │   └── colors.go      # Color schemes
-│   ├── forwarder/         # Request forwarding logic
-│   │   ├── forwarder.go   # Forwarding implementation
-│   │   └── client.go      # HTTP client wrapper
-│   └── logger/            # Logging system
-│       ├── logger.go      # Logger implementation
-│       └── writer.go      # Log writers
-├── pkg/request/           # Request data models
-│   └── request.go         # Request structure definition
-├── config.yaml.example    # Configuration file template
-├── Makefile              # Build scripts
-├── go.mod                # Go module definition
-├── go.sum                # Dependency checksums
-└── docs/                 # Documentation
-    └── README-zh.md      # Chinese documentation
+├── cmd/reqtap/main.go        # Cobra CLI & server entrypoint
+├── internal/
+│   ├── config/               # Defaults, loading, validation
+│   ├── forwarder/            # Multi-target forwarding, retries, worker pool
+│   ├── logger/               # Zerolog adapter + optional file logger
+│   ├── printer/console.go    # Colorized terminal output & redaction rules
+│   ├── server/               # Gorilla Mux server and handler wiring
+│   ├── static/               # Embedded web console assets
+│   └── web/                  # Dashboard REST API, WebSocket, store, auth
+├── pkg/request/request.go    # RequestData model & helpers
+├── scripts/install.sh        # Install/update script
+├── config.yaml.example       # Configuration example
+├── Dockerfile
+├── Makefile
+├── README.md / README-EN.md
+└── build/, logs/             # Optional build artifacts and rolling logs
 ```
-
-## Output Examples
-
-### Basic Request Logging
-
-```text
-┌───────────────────────────── REQUEST #1 ───(2024-01-15T10:30:45+08:00)─┐
-│                                                                     │
-│  [GET] /api/users [FROM: 192.168.1.100]                           │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Headers ───                                                     │
-│                                                                     │
-│   Accept: application/json                                          │
-│   Authorization: [REDACTED]                                         │
-│   User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)           │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Body (0 B) ───                                                  │
-│                                                                     │
-│   [Empty Body]                                                      │
-│                                                                     │
-└──────────────────────────────── END OF REQUEST #1 ─────────────────┘
-```
-
-### JSON Payload with Forwarding
-
-```text
-┌───────────────────────────── REQUEST #2 ───(2024-01-15T10:35:22+08:00)─┐
-│                                                                     │
-│  [POST] /webhook/github [FROM: 140.82.112.1]                       │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Headers ───                                                     │
-│                                                                     │
-│   Content-Type: application/json                                    │
-│   User-Agent: GitHub-Hookshot/abc123                               │
-│   X-GitHub-Event: push                                             │
-│   X-GitHub-Delivery: 12345678-1234-1234-1234-123456789012          │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Body (1.2 kB) ───                                               │
-│                                                                     │
-│   {                                                                 │
-│     "ref": "refs/heads/main",                                       │
-│     "repository": {                                                 │
-│       "name": "reqtap",                                             │
-│       "full_name": "funnyzak/reqtap"                                │
-│     },                                                              │
-│     "pusher": {                                                     │
-│       "name": "username",                                           │
-│       "email": "user@example.com"                                   │
-│     },                                                              │
-│     "commits": [                                                    │
-│       {                                                             │
-│         "id": "abc123",                                             │
-│         "message": "Update README",                                  │
-│         "author": {                                                 │
-│           "name": "Developer",                                      │
-│           "email": "dev@example.com"                                │
-│         }                                                           │
-│       }                                                             │
-│     ]                                                               │
-│   }                                                                 │
-│                                                                     │
-└──────────────────────────────── END OF REQUEST #2 ─────────────────┘
-
-→ Forwarding to http://localhost:3000/webhook... ✓
-→ Forwarding to https://api.example.com/ingest... ✓
-```
-
-### Binary Content Detection
-
-```text
-┌───────────────────────────── REQUEST #3 ───(2024-01-15T10:40:15+08:00)─┐
-│                                                                     │
-│  [POST] /upload [FROM: 192.168.1.100]                              │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Headers ───                                                     │
-│                                                                     │
-│   Content-Type: application/octet-stream                            │
-│   Content-Length: 1024                                             │
-│   User-Agent: curl/7.64.1                                           │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│ ─── Body (1 kB) ───                                                 │
-│                                                                     │
-│   [Binary Body: application/octet-stream, 1 kB. Content skipped.]   │
-│                                                                     │
-└──────────────────────────────── END OF REQUEST #3 ─────────────────┘
-```
-
----
 
 ## License
 

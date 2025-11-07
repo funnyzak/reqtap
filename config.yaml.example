@@ -9,7 +9,8 @@ server:
   # URL path prefix to listen
   # "/" receives requests from all paths
   # "/webhook/" receives only requests starting with /webhook/
-  path: "/"
+  # "/reqtap"  receives only requests starting with /reqtap
+  path: "/reqtap/"
 
 # Logging configuration
 log:
@@ -54,3 +55,37 @@ forward:
 
   # Maximum concurrent forwarding requests
   max_concurrent: 10
+
+# Web console configuration
+web:
+  # Enable web UI and APIs
+  enable: true
+
+  # Base path for static assets (UI)
+  path: "/web"
+
+  # Administrative API base path
+  admin_path: "/api"
+
+  # Maximum number of in-memory requests retained
+  max_requests: 500
+
+  auth:
+    # Enable authentication
+    enable: true
+    # Session expiration duration
+    session_timeout: 24h
+    # User list (replace default credentials in production)
+    users:
+      - username: "admin"
+        password: "ihevsxzlmxzm"
+        role: "admin"
+      - username: "user"
+        password: "imuvnspbvwwi"
+        role: "viewer"
+
+  export:
+    # Enable data export APIs
+    enable: true
+    # Allowed export formats
+    formats: ["json", "csv"]

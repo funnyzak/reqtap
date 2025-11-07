@@ -113,6 +113,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
+	if err := validateWebPathConflicts(cfg); err != nil {
+		return err
+	}
 
 	// Create logger
 	log := logger.NewLogger(&cfg.Log)
@@ -150,6 +153,23 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 	lines = append(lines, fmt.Sprintf("🚀 Listening on:   http://0.0.0.0:%d%s", cfg.Server.Port, cfg.Server.Path))
 	lines = append(lines, fmt.Sprintf("🎯 Watching Path:   %s", watchPath))
 	lines = append(lines, fmt.Sprintf("📊 Log Level:       %s", cfg.Log.Level))
+	if cfg.Web.Enable {
+		lines = append(lines, "🖥️ Web Console:    Enabled")
+		lines = append(lines, fmt.Sprintf("   └─ UI Path:      %s", cfg.Web.Path))
+		lines = append(lines, fmt.Sprintf("   └─ API Path:     %s", cfg.Web.AdminPath))
+		authStatus := "Disabled"
+		if cfg.Web.Auth.Enable {
+			authStatus = fmt.Sprintf("Enabled (%d user(s))", len(cfg.Web.Auth.Users))
+		}
+		lines = append(lines, fmt.Sprintf("   └─ Auth:         %s", authStatus))
+		exportStatus := "Disabled"
+		if cfg.Web.Export.Enable {
+			exportStatus = fmt.Sprintf("Enabled (%d format(s))", len(cfg.Web.Export.Formats))
+		}
+		lines = append(lines, fmt.Sprintf("   └─ Export:       %s", exportStatus))
+	} else {
+		lines = append(lines, "🖥️ Web Console:    Disabled")
+	}
 
 	// Forward target information
 	lines = append(lines, "")
@@ -222,6 +242,11 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		"path", cfg.Server.Path,
 		"log_level", cfg.Log.Level,
 		"forward_urls", cfg.Forward.URLs,
+		"web_enable", cfg.Web.Enable,
+		"web_path", cfg.Web.Path,
+		"web_admin_path", cfg.Web.AdminPath,
+		"web_auth", cfg.Web.Auth.Enable,
+		"web_export", cfg.Web.Export.Enable,
 	)
 }
 
@@ -304,4 +329,56 @@ func printBoxContent(content string, boxWidth int, center bool) {
 	}
 
 	fmt.Printf("│%s%s%s│\n", leftPad, content, rightPad)
+}
+
+func validateWebPathConflicts(cfg *config.Config) error {
+	if cfg == nil || !cfg.Web.Enable {
+		return nil
+	}
+
+	serverPath := normalizeConfigPath(cfg.Server.Path)
+	webPath := normalizeConfigPath(cfg.Web.Path)
+	adminPath := normalizeConfigPath(cfg.Web.AdminPath)
+
+	if pathsOverlap(serverPath, webPath) {
+		return fmt.Errorf("web.path (%s) conflicts with server.path (%s); please configure different values", cfg.Web.Path, cfg.Server.Path)
+	}
+	if pathsOverlap(serverPath, adminPath) {
+		return fmt.Errorf("web.admin_path (%s) conflicts with server.path (%s); please configure different values", cfg.Web.AdminPath, cfg.Server.Path)
+	}
+
+	return nil
+}
+
+func normalizeConfigPath(p string) string {
+	if p == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	if len(p) > 1 && strings.HasSuffix(p, "/") {
+		p = strings.TrimRight(p, "/")
+	}
+	return p
+}
+
+func pathsOverlap(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if a == "/" && b == "/" {
+		return true
+	}
+	if a == "/" || b == "/" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+
+	aPrefix := strings.TrimRight(a, "/") + "/"
+	bPrefix := strings.TrimRight(b, "/") + "/"
+
+	return strings.HasPrefix(aPrefix, bPrefix) || strings.HasPrefix(bPrefix, aPrefix)
 }
