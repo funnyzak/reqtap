@@ -8,13 +8,13 @@ on:
   #     - "*.md"
   #     - ".gitignore"
   #     - "LICENSE"
-  pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - docs/**
-      - "*.md"
-      - ".gitignore"
-      - "LICENSE"
+  # pull_request:
+  #   branches: [ main ]
+  #   paths-ignore:
+  #     - docs/**
+  #     - "*.md"
+  #     - ".gitignore"
+  #     - "LICENSE"
   workflow_dispatch:
     inputs:
       version:
