@@ -176,7 +176,7 @@ jobs:
           # Set build variables
           export VERSION="${{ needs.setup.outputs.version }}"
           export BUILD_DATE="${{ needs.setup.outputs.build_date }}"
-          export COMMIT_HASH="${{ needs.setup.outputs.commit_hash }}"
+          export COMMIT="${{ needs.setup.outputs.commit_hash }}"
           export GOOS="${{ matrix.goos }}"
           export GOARCH="${{ matrix.goarch }}"
 
@@ -188,7 +188,7 @@ jobs:
           if [[ -z "$BINARY_PATH" ]]; then
             # Fallback: build manually if Makefile target doesn't work as expected
             go build -o ${{ env.BUILD_DIR }}/${{ matrix.binary_name }} \
-              -ldflags "-X main.version=${VERSION} -X main.buildDate=${BUILD_DATE} -X main.commitHash=${COMMIT_HASH}" \
+              -ldflags "-X main.version=${VERSION} -X main.buildDate=${BUILD_DATE} -X main.commit=${COMMIT}" \
               ./cmd/reqtap
           else
             mv "$BINARY_PATH" "${{ env.BUILD_DIR }}/${{ matrix.binary_name }}"

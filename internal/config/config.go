@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
@@ -237,18 +239,26 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.max_concurrent", 10)
 
 	// Web console defaults
-	v.SetDefault("web.enable", true)
+	v.SetDefault("web.enable", false)
 	v.SetDefault("web.path", "/web")
 	v.SetDefault("web.admin_path", "/api")
 	v.SetDefault("web.max_requests", 500)
 	v.SetDefault("web.auth.enable", true)
 	v.SetDefault("web.auth.session_timeout", "24h")
 	v.SetDefault("web.auth.users", []map[string]string{
-		{"username": "admin", "password": "admin123", "role": "admin"},
-		{"username": "user", "password": "user123", "role": "viewer"},
+		{"username": "admin", "password": generateRandomPassword(10), "role": "admin"},
+		{"username": "user", "password": generateRandomPassword(10), "role": "viewer"},
 	})
 	v.SetDefault("web.export.enable", true)
 	v.SetDefault("web.export.formats", []string{"json", "csv"})
+}
+
+func generateRandomPassword(length int) string {
+	buf := make([]byte, length)
+	if _, err := rand.Read(buf); err != nil {
+		return hex.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
+	}
+	return hex.EncodeToString(buf)
 }
 
 // validate configuration

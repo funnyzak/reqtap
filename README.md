@@ -138,23 +138,23 @@ go build -o reqtap ./cmd/reqtap
 
 1. **使用默认设置启动**
    ```bash
-   ./reqtap
+   reqtap
    ```
    默认监听 `http://0.0.0.0:38888/`
 
 2. **自定义端口和路径**
    ```bash
-   ./reqtap --port 8080 --path /reqtap/
+   reqtap --port 8080 --path /reqtap/
    ```
 
 3. **启用文件日志记录**
    ```bash
-   ./reqtap --log-file-enable --log-file-path ./reqtap.log
+   reqtap --log-file-enable --log-file-path ./reqtap.log
    ```
 
 4. **转发到多个目标**
    ```bash
-   ./reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
+   reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
    ```
 
 ## Web 控制台
@@ -267,7 +267,7 @@ web:
 
 **使用配置文件：**
 ```bash
-./reqtap --config config.yaml
+reqtap --config config.yaml
 ```
 
 ### 环境变量

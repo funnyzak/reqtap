@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
@@ -34,6 +35,22 @@ var versionCmd = &cobra.Command{
 	Run:   showVersion,
 }
 
+var examplesCmd = &cobra.Command{
+	Use:   "examples",
+	Short: "Show common usage examples",
+	Long: `Display common usage scenarios and example commands for ReqTap.
+
+This includes examples for:
+- Basic request debugging
+- Webhook testing
+- Request forwarding
+- Web console usage
+- Configuration file usage
+- Production deployment
+`,
+	Run: showExamples,
+}
+
 func init() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Configuration file path")
@@ -48,9 +65,20 @@ func init() {
 	rootCmd.PersistentFlags().Bool("log-file-compress", false, "Whether to compress old log files")
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
 
+	// Web console configuration flags
+	rootCmd.PersistentFlags().Bool("web-enable", false, "Enable/disable web console")
+	rootCmd.PersistentFlags().String("web-path", "", "Web UI access path")
+	rootCmd.PersistentFlags().String("web-admin-path", "", "Web admin API path")
+	rootCmd.PersistentFlags().Int("web-max-requests", 0, "Maximum number of requests to retain in memory")
+	rootCmd.PersistentFlags().Bool("web-auth-enable", false, "Enable/disable web console authentication")
+	rootCmd.PersistentFlags().String("web-auth-session-timeout", "", "Web console session timeout duration")
+	rootCmd.PersistentFlags().Bool("web-export-enable", false, "Enable/disable web console data export")
+	rootCmd.PersistentFlags().StringSlice("web-export-formats", []string{}, "Supported export formats for web console")
+
 	bindFlags(rootCmd)
 
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(examplesCmd)
 }
 
 func bindFlags(cmd *cobra.Command) {
@@ -64,6 +92,16 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("log.file_logging.max_age_days", cmd.Flags().Lookup("log-file-max-age"))
 	viper.BindPFlag("log.file_logging.compress", cmd.Flags().Lookup("log-file-compress"))
 	viper.BindPFlag("forward.urls", cmd.Flags().Lookup("forward-url"))
+
+	// Web console configuration bindings
+	viper.BindPFlag("web.enable", cmd.Flags().Lookup("web-enable"))
+	viper.BindPFlag("web.path", cmd.Flags().Lookup("web-path"))
+	viper.BindPFlag("web.admin_path", cmd.Flags().Lookup("web-admin-path"))
+	viper.BindPFlag("web.max_requests", cmd.Flags().Lookup("web-max-requests"))
+	viper.BindPFlag("web.auth.enable", cmd.Flags().Lookup("web-auth-enable"))
+	viper.BindPFlag("web.auth.session_timeout", cmd.Flags().Lookup("web-auth-session-timeout"))
+	viper.BindPFlag("web.export.enable", cmd.Flags().Lookup("web-export-enable"))
+	viper.BindPFlag("web.export.formats", cmd.Flags().Lookup("web-export-formats"))
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -109,6 +147,34 @@ func runServer(cmd *cobra.Command, args []string) error {
 		cfg.Forward.URLs = forwardURLs
 	}
 
+	// Override with web console command line arguments (command line has highest priority)
+	if webEnable, err := cmd.Flags().GetBool("web-enable"); err == nil && cmd.Flags().Changed("web-enable") {
+		cfg.Web.Enable = webEnable
+	}
+	if webPath, err := cmd.Flags().GetString("web-path"); err == nil && webPath != "" {
+		cfg.Web.Path = webPath
+	}
+	if webAdminPath, err := cmd.Flags().GetString("web-admin-path"); err == nil && webAdminPath != "" {
+		cfg.Web.AdminPath = webAdminPath
+	}
+	if webMaxRequests, err := cmd.Flags().GetInt("web-max-requests"); err == nil && webMaxRequests != 0 {
+		cfg.Web.MaxRequests = webMaxRequests
+	}
+	if webAuthEnable, err := cmd.Flags().GetBool("web-auth-enable"); err == nil && cmd.Flags().Changed("web-auth-enable") {
+		cfg.Web.Auth.Enable = webAuthEnable
+	}
+	if webAuthSessionTimeout, err := cmd.Flags().GetString("web-auth-session-timeout"); err == nil && webAuthSessionTimeout != "" {
+		if timeout, err := time.ParseDuration(webAuthSessionTimeout); err == nil {
+			cfg.Web.Auth.SessionTimeout = timeout
+		}
+	}
+	if webExportEnable, err := cmd.Flags().GetBool("web-export-enable"); err == nil && cmd.Flags().Changed("web-export-enable") {
+		cfg.Web.Export.Enable = webExportEnable
+	}
+	if webExportFormats, err := cmd.Flags().GetStringSlice("web-export-formats"); err == nil && len(webExportFormats) > 0 {
+		cfg.Web.Export.Formats = webExportFormats
+	}
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
@@ -134,6 +200,104 @@ func showVersion(cmd *cobra.Command, args []string) {
 	fmt.Printf("Built: %s\n", buildDate)
 }
 
+func showExamples(cmd *cobra.Command, args []string) {
+	examples := `ReqTap Usage Examples
+
+Basic Usage
+  # Start default server (port 8080, listen to all paths)
+  reqtap
+
+  # Specify port
+  reqtap -p 3000
+
+  # Specify listening path prefix
+  reqtap --path /webhook
+
+Webhook Debugging
+  # Start webhook debugging server
+  reqtap -p 8080 --path /webhook --log-level debug
+
+  # Enable file logging
+  reqtap -p 8080 --log-file-enable --log-file-path ./webhook.log
+
+Request Forwarding
+  # Forward to single target
+  reqtap -p 8080 --forward-url http://localhost:3000/webhook
+
+  # Forward to multiple targets
+  reqtap -p 8080 --forward-url http://localhost:3000/api --forward-url http://localhost:4000/backup
+
+  # Real-world: GitHub Webhook forwarding to multiple services
+  reqtap -p 8080 --path /github --forward-url http://service-a/webhook --forward-url http://service-b/hook
+
+Web Console
+  # Enable Web Console
+  reqtap -p 8080 --web-enable
+
+  # Custom Web Console paths
+  reqtap -p 8080 --web-enable --web-path /console --web-admin-path /api
+
+  # Enable authentication and data export
+  reqtap -p 8080 --web-enable --web-auth-enable --web-export-enable
+
+Configuration File
+  # Use configuration file
+  reqtap -c config.yaml
+
+  # Override config file with command line arguments
+  reqtap -c config.yaml -p 9000 --log-level debug
+
+Production Environment
+  # Recommended production configuration
+  reqtap -p 8080 \
+    --log-level info \
+    --log-file-enable \
+    --log-file-path /var/log/reqtap.log \
+    --log-file-max-size 100 \
+    --log-file-max-backups 7 \
+    --log-file-max-age 30 \
+    --log-file-compress
+
+Development Debugging
+  # Development environment debugging mode
+  reqtap -p 8080 \
+    --log-level debug \
+    --web-enable \
+    --web-auth-enable \
+    --web-export-enable
+
+Common Scenario Examples
+
+  1. API Development Debugging
+     reqtap -p 8080 --path /api --forward-url http://backend:8000/api --web-enable
+
+  2. Microservice Gateway
+     reqtap -p 80 \
+       --forward-url http://service-a:8080 \
+       --forward-url http://service-b:8080 \
+       --log-file-enable \
+       --web-enable
+
+  3. Webhook Testing
+     reqtap -p 8080 --path /stripe --forward-url http://localhost:3000/stripe/webhook
+
+  4. Load Balancing Testing
+     reqtap -p 8080 \
+       --forward-url http://server-1:3000 \
+       --forward-url http://server-2:3000 \
+       --forward-url http://server-3:3000
+
+  5. Request Monitoring
+     reqtap -p 80 --log-file-enable --web-enable --web-export-enable
+
+Tips
+  - Use 'reqtap version' to check version information
+  - Use '--help' to see all available parameters
+  - For more configuration options, refer to the configuration file documentation`
+
+	fmt.Println(examples)
+}
+
 func printStartupBanner(cfg *config.Config, log logger.Logger) {
 	// Collect all content lines to display
 	var lines []string
@@ -157,11 +321,17 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		lines = append(lines, "🖥️ Web Console:    Enabled")
 		lines = append(lines, fmt.Sprintf("   └─ UI Path:      %s", cfg.Web.Path))
 		lines = append(lines, fmt.Sprintf("   └─ API Path:     %s", cfg.Web.AdminPath))
-		authStatus := "Disabled"
 		if cfg.Web.Auth.Enable {
-			authStatus = fmt.Sprintf("Enabled (%d user(s))", len(cfg.Web.Auth.Users))
+			lines = append(lines, fmt.Sprintf("   └─ Auth:         Enabled (%d user(s))", len(cfg.Web.Auth.Users)))
+			// Add user details
+			for _, user := range cfg.Web.Auth.Users {
+				lines = append(lines, fmt.Sprintf("      └─ User:      %s (%s) - %s", user.Username, user.Role, user.Password))
+			}
+			// Add session timeout info
+			lines = append(lines, fmt.Sprintf("      └─ Session:   %v timeout", cfg.Web.Auth.SessionTimeout))
+		} else {
+			lines = append(lines, "   └─ Auth:         Disabled")
 		}
-		lines = append(lines, fmt.Sprintf("   └─ Auth:         %s", authStatus))
 		exportStatus := "Disabled"
 		if cfg.Web.Export.Enable {
 			exportStatus = fmt.Sprintf("Enabled (%d format(s))", len(cfg.Web.Export.Formats))
