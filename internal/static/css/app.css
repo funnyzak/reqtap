@@ -53,6 +53,10 @@ body::after {
   z-index: -1;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 @keyframes swirl {
   from {
     transform: rotate(0deg);
@@ -234,6 +238,15 @@ body::after {
   transform: translateY(-1px);
 }
 
+.export-btn--icon {
+  width: 44px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .table-shell {
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-soft);
@@ -296,6 +309,82 @@ body::after {
   word-break: break-all;
 }
 
+.detail-action-wrapper {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: rgba(2, 6, 23, 0.65);
+  padding: 1rem 1.25rem;
+}
+
+.detail-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detail-action-group__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.detail-action-buttons {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--text-default);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.icon-btn:hover {
+  border-color: var(--brand-emerald);
+  color: var(--brand-emerald);
+  transform: translateY(-1px);
+}
+
+.icon-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: rgba(148, 163, 184, 0.15);
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.detail-action-status {
+  font-size: 0.8rem;
+  min-height: 1rem;
+  margin-top: 0.35rem;
+  color: var(--brand-emerald);
+}
+
+.detail-action-status.error {
+  color: var(--brand-rose);
+}
+
+.admin-locked {
+  opacity: 0.5;
+  pointer-events: none;
+  filter: grayscale(0.25);
+}
+
 #detail-modal {
   transition: opacity 160ms ease;
   background-color: rgba(2, 6, 23, 0.85) !important;
@@ -307,6 +396,12 @@ body::after {
 
 #detail-modal > div {
   background-color: rgb(15, 23, 42) !important;
+}
+
+.detail-modal-panel {
+  max-height: min(90vh, calc(100vh - 2rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .detail-label {

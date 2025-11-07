@@ -10,6 +10,7 @@ import (
 type RequestData struct {
 	Timestamp     time.Time   `json:"timestamp"`
 	Method        string      `json:"method"`
+	Proto         string      `json:"proto"`
 	Path          string      `json:"path"`
 	Query         string      `json:"query"`
 	RemoteAddr    string      `json:"remote_addr"`
@@ -29,6 +30,7 @@ func NewRequestData(r *http.Request, body []byte) *RequestData {
 	return &RequestData{
 		Timestamp:     time.Now(),
 		Method:        r.Method,
+		Proto:         r.Proto,
 		Path:          r.URL.Path,
 		Query:         r.URL.RawQuery,
 		RemoteAddr:    getClientIP(r),

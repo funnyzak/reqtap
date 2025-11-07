@@ -15,10 +15,13 @@ const state = {
     method: '',
   },
   userRole: '',
+  activeRequest: null,
+  activeRequestBody: '',
 };
 
 let ws;
 let reconnectTimer;
+let actionStatusTimer;
 
 const els = {
   body: document.getElementById('requests-body'),
@@ -39,6 +42,12 @@ const els = {
   detailMeta: document.getElementById('detail-meta'),
   detailHeaders: document.getElementById('detail-headers'),
   detailBody: document.getElementById('detail-body'),
+  requestDownload: document.getElementById('request-download-btn'),
+  requestCopy: document.getElementById('request-copy-btn'),
+  curlCopy: document.getElementById('curl-copy-btn'),
+  actionStatus: document.getElementById('detail-action-status'),
+  adminAreas: document.querySelectorAll('[data-admin-only="true"]'),
+  adminButtons: document.querySelectorAll('[data-admin-action="true"]'),
 };
 
 async function apiFetch(endpoint, options = {}) {
@@ -110,6 +119,30 @@ function updateUIForRole(role, authEnabled) {
       btn.disabled = false;
       btn.style.cursor = 'pointer';
       btn.style.opacity = '1';
+    }
+  });
+
+  const adminAreas = els.adminAreas || [];
+  adminAreas.forEach((area) => {
+    if (!area) return;
+    area.classList.toggle('admin-locked', !canExport);
+    if (!canExport) {
+      area.setAttribute('title', 'Admin role required');
+    } else {
+      area.removeAttribute('title');
+    }
+  });
+
+  const adminButtons = els.adminButtons || [];
+  adminButtons.forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = !canExport;
+    btn.setAttribute('aria-disabled', String(!canExport));
+    const label = btn.dataset.label || btn.getAttribute('aria-label') || '';
+    if (!canExport) {
+      btn.title = 'Admin role required';
+    } else if (label) {
+      btn.title = label;
     }
   });
 }
@@ -213,7 +246,11 @@ function openDetail(item) {
   `;
 
   els.detailHeaders.textContent = formatHeaders(item.headers || {});
-  els.detailBody.textContent = decodeBody(item);
+  const decodedBody = decodeBody(item);
+  els.detailBody.textContent = decodedBody;
+  state.activeRequest = item;
+  state.activeRequestBody = decodedBody;
+  clearActionStatus();
   els.modal.classList.remove('hidden');
   els.modal.classList.add('flex');
 }
@@ -221,6 +258,9 @@ function openDetail(item) {
 function closeDetail() {
   els.modal.classList.add('hidden');
   els.modal.classList.remove('flex');
+  state.activeRequest = null;
+  state.activeRequestBody = '';
+  clearActionStatus();
 }
 
 function formatHeaders(headers) {
@@ -245,6 +285,27 @@ function decodeBody(item) {
   } catch {
     return '(Unable to decode body)';
   }
+}
+
+function canUseAdminActions() {
+  return !AUTH_ENABLED || state.userRole === ROLE_ADMIN;
+}
+
+function ensureAdminAction() {
+  if (!canUseAdminActions()) {
+    setActionStatus('Admin role required', 'error');
+    alert('Admin role required');
+    return false;
+  }
+  return true;
+}
+
+function ensureActiveRequest() {
+  if (!state.activeRequest) {
+    setActionStatus('Please select a request first', 'error');
+    return null;
+  }
+  return state.activeRequest;
 }
 
 function updateWsStatus(status) {
@@ -400,6 +461,246 @@ function bindEvents() {
       closeDetail();
     }
   });
+
+  if (els.requestDownload) {
+    els.requestDownload.addEventListener('click', handleRequestDownload);
+  }
+  if (els.requestCopy) {
+    els.requestCopy.addEventListener('click', () => {
+      handleRequestCopy();
+    });
+  }
+    if (els.curlCopy) {
+    els.curlCopy.addEventListener('click', () => {
+      handleCurlCopy();
+    });
+  }
+}
+
+function composeRequestPath(item) {
+  if (!item) {
+    return '/';
+  }
+  const basePath = item.path || '/';
+  if (item.query) {
+    return `${basePath}?${item.query}`;
+  }
+  return basePath;
+}
+
+function formatHeadersText(headers = {}) {
+  const keys = Object.keys(headers);
+  keys.sort((a, b) => a.localeCompare(b));
+  const lines = [];
+  keys.forEach((key) => {
+    const value = headers[key];
+    if (Array.isArray(value)) {
+      value.forEach((val) => {
+        if (val !== undefined && val !== null) {
+          lines.push(`${key}: ${val}`);
+        }
+      });
+    } else if (value !== undefined && value !== null) {
+      lines.push(`${key}: ${value}`);
+    }
+  });
+  return lines.join('\n');
+}
+
+function buildRequestPayload(item, decodedBody) {
+  if (!item) {
+    return '';
+  }
+  const requestLine = `${(item.method || 'GET').toUpperCase()} ${composeRequestPath(item)} HTTP/1.1`;
+  const headerSection = formatHeadersText(item.headers || {});
+  const bodySection = item.body && item.body.length > 0 ? (decodedBody || '') : '(empty body)';
+  const parts = [requestLine];
+  if (headerSection) {
+    parts.push(headerSection);
+  }
+  parts.push('', bodySection || '(empty body)');
+  return parts.join('\n');
+}
+
+
+function flattenHeaders(headers = {}) {
+  const entries = [];
+  Object.keys(headers)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((key) => {
+      const value = headers[key];
+      if (Array.isArray(value)) {
+        value.forEach((val) => {
+          if (val !== undefined && val !== null && val !== '') {
+            entries.push([key, val]);
+          }
+        });
+      } else if (value !== undefined && value !== null && value !== '') {
+        entries.push([key, value]);
+      }
+    });
+  return entries;
+}
+
+function buildCurlCommand(item, decodedBody) {
+  const origin = window.location.origin || `${window.location.protocol}//${window.location.host}`;
+  const url = `${origin}${composeRequestPath(item)}`;
+
+  const headers = flattenHeaders(item.headers || {});
+  const hasHeaders = headers.length > 0;
+  const hasBody = item.body && item.body.length > 0 && !item.is_binary && decodedBody && decodedBody !== '(Unable to decode body)';
+
+  // If it's a simple command (no headers and no body), return single line
+  if (!hasHeaders && !hasBody) {
+    return `curl -X ${(item.method || 'GET').toUpperCase()} '${escapeShellSingleQuotes(url)}'`;
+  }
+
+  // Build multiline command
+  const parts = [];
+
+  // First line with backslash
+  parts.push(`curl -X ${(item.method || 'GET').toUpperCase()} '${escapeShellSingleQuotes(url)}' \\`);
+
+  // Add headers
+  if (hasHeaders) {
+    headers.forEach(([key, value], index) => {
+      const sanitizedValue = String(value).replace(/\r?\n/g, ' ');
+      // Add backslash unless this is the last header and there's no body
+      const isLastHeader = index === headers.length - 1;
+      const addBackslash = hasBody || !isLastHeader;
+      parts.push(`  -H '${escapeShellSingleQuotes(`${key}: ${sanitizedValue}`)}'${addBackslash ? ' \\' : ''}`);
+    });
+  }
+
+  // Add body
+  if (hasBody) {
+    const bodyLines = decodedBody.split('\n');
+    if (bodyLines.length === 1) {
+      parts.push(`  --data '${escapeShellSingleQuotes(decodedBody)}'`);
+    } else {
+      // For multiline body, join with \n and keep in single quotes
+      const sanitizedBody = decodedBody.replace(/'/g, `'"'"'`);
+      parts.push(`  --data '${sanitizedBody}'`);
+    }
+  }
+
+  return parts.join('\n');
+}
+
+function escapeShellSingleQuotes(value) {
+  if (!value) {
+    return '';
+  }
+  return value.replace(/'/g, `'"'"'`);
+}
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || 'reqtap.txt';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      const success = document.execCommand('copy');
+      if (!success) {
+        reject(new Error('Copy command failed'));
+      } else {
+        resolve();
+      }
+    } catch (error) {
+      reject(error);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  });
+}
+
+function setActionStatus(message, type = 'info') {
+  if (!els.actionStatus) {
+    return;
+  }
+  clearTimeout(actionStatusTimer);
+  els.actionStatus.textContent = message || '';
+  if (type === 'error') {
+    els.actionStatus.classList.add('error');
+  } else {
+    els.actionStatus.classList.remove('error');
+  }
+  if (message) {
+    els.actionStatus.classList.remove('hidden');
+    actionStatusTimer = setTimeout(() => {
+      els.actionStatus.textContent = '';
+      els.actionStatus.classList.remove('error');
+      els.actionStatus.classList.add('hidden');
+    }, 4000);
+  } else {
+    els.actionStatus.classList.add('hidden');
+  }
+}
+
+function clearActionStatus() {
+  clearTimeout(actionStatusTimer);
+  if (els.actionStatus) {
+    els.actionStatus.textContent = '';
+    els.actionStatus.classList.remove('error');
+    els.actionStatus.classList.add('hidden');
+  }
+}
+
+function handleRequestDownload() {
+  if (!ensureAdminAction()) return;
+  const item = ensureActiveRequest();
+  if (!item) return;
+  const payload = buildRequestPayload(item, state.activeRequestBody);
+  downloadText(`reqtap-request-${item.id || 'payload'}.txt`, payload);
+  setActionStatus('Request downloaded');
+}
+
+async function handleRequestCopy() {
+  if (!ensureAdminAction()) return;
+  const item = ensureActiveRequest();
+  if (!item) return;
+  const payload = buildRequestPayload(item, state.activeRequestBody);
+  try {
+    await copyToClipboard(payload);
+    setActionStatus('Request copied');
+  } catch (error) {
+    console.error('Failed to copy request payload', error);
+    setActionStatus('Failed to copy request', 'error');
+  }
+}
+
+
+async function handleCurlCopy() {
+  if (!ensureAdminAction()) return;
+  const item = ensureActiveRequest();
+  if (!item) return;
+  try {
+    await copyToClipboard(buildCurlCommand(item, state.activeRequestBody));
+    setActionStatus('cURL command copied');
+  } catch (error) {
+    console.error('Failed to copy curl command', error);
+    setActionStatus('Failed to copy cURL command', 'error');
+  }
 }
 
 async function bootstrap() {

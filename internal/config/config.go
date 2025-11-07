@@ -239,7 +239,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.max_concurrent", 10)
 
 	// Web console defaults
-	v.SetDefault("web.enable", false)
+	v.SetDefault("web.enable", true)
 	v.SetDefault("web.path", "/web")
 	v.SetDefault("web.admin_path", "/api")
 	v.SetDefault("web.max_requests", 500)
@@ -250,7 +250,7 @@ func setDefaults(v *viper.Viper) {
 		{"username": "user", "password": generateRandomPassword(10), "role": "viewer"},
 	})
 	v.SetDefault("web.export.enable", true)
-	v.SetDefault("web.export.formats", []string{"json", "csv"})
+	v.SetDefault("web.export.formats", []string{"json", "csv", "txt"})
 }
 
 func generateRandomPassword(length int) string {
