@@ -239,7 +239,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.max_concurrent", 10)
 
 	// Web console defaults
-	v.SetDefault("web.enable", true)
+	v.SetDefault("web.enable", false)
 	v.SetDefault("web.path", "/web")
 	v.SetDefault("web.admin_path", "/api")
 	v.SetDefault("web.max_requests", 500)

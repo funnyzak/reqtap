@@ -35,6 +35,22 @@ var versionCmd = &cobra.Command{
 	Run:   showVersion,
 }
 
+var examplesCmd = &cobra.Command{
+	Use:   "examples",
+	Short: "Show common usage examples",
+	Long: `Display common usage scenarios and example commands for ReqTap.
+
+This includes examples for:
+- Basic request debugging
+- Webhook testing
+- Request forwarding
+- Web console usage
+- Configuration file usage
+- Production deployment
+`,
+	Run: showExamples,
+}
+
 func init() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Configuration file path")
@@ -62,6 +78,7 @@ func init() {
 	bindFlags(rootCmd)
 
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(examplesCmd)
 }
 
 func bindFlags(cmd *cobra.Command) {
@@ -181,6 +198,104 @@ func showVersion(cmd *cobra.Command, args []string) {
 	fmt.Printf("ReqTap version %s\n", version)
 	fmt.Printf("Commit: %s\n", commit)
 	fmt.Printf("Built: %s\n", buildDate)
+}
+
+func showExamples(cmd *cobra.Command, args []string) {
+	examples := `ReqTap Usage Examples
+
+Basic Usage
+  # Start default server (port 8080, listen to all paths)
+  reqtap
+
+  # Specify port
+  reqtap -p 3000
+
+  # Specify listening path prefix
+  reqtap --path /webhook
+
+Webhook Debugging
+  # Start webhook debugging server
+  reqtap -p 8080 --path /webhook --log-level debug
+
+  # Enable file logging
+  reqtap -p 8080 --log-file-enable --log-file-path ./webhook.log
+
+Request Forwarding
+  # Forward to single target
+  reqtap -p 8080 --forward-url http://localhost:3000/webhook
+
+  # Forward to multiple targets
+  reqtap -p 8080 --forward-url http://localhost:3000/api --forward-url http://localhost:4000/backup
+
+  # Real-world: GitHub Webhook forwarding to multiple services
+  reqtap -p 8080 --path /github --forward-url http://service-a/webhook --forward-url http://service-b/hook
+
+Web Console
+  # Enable Web Console
+  reqtap -p 8080 --web-enable
+
+  # Custom Web Console paths
+  reqtap -p 8080 --web-enable --web-path /console --web-admin-path /api
+
+  # Enable authentication and data export
+  reqtap -p 8080 --web-enable --web-auth-enable --web-export-enable
+
+Configuration File
+  # Use configuration file
+  reqtap -c config.yaml
+
+  # Override config file with command line arguments
+  reqtap -c config.yaml -p 9000 --log-level debug
+
+Production Environment
+  # Recommended production configuration
+  reqtap -p 8080 \
+    --log-level info \
+    --log-file-enable \
+    --log-file-path /var/log/reqtap.log \
+    --log-file-max-size 100 \
+    --log-file-max-backups 7 \
+    --log-file-max-age 30 \
+    --log-file-compress
+
+Development Debugging
+  # Development environment debugging mode
+  reqtap -p 8080 \
+    --log-level debug \
+    --web-enable \
+    --web-auth-enable \
+    --web-export-enable
+
+Common Scenario Examples
+
+  1. API Development Debugging
+     reqtap -p 8080 --path /api --forward-url http://backend:8000/api --web-enable
+
+  2. Microservice Gateway
+     reqtap -p 80 \
+       --forward-url http://service-a:8080 \
+       --forward-url http://service-b:8080 \
+       --log-file-enable \
+       --web-enable
+
+  3. Webhook Testing
+     reqtap -p 8080 --path /stripe --forward-url http://localhost:3000/stripe/webhook
+
+  4. Load Balancing Testing
+     reqtap -p 8080 \
+       --forward-url http://server-1:3000 \
+       --forward-url http://server-2:3000 \
+       --forward-url http://server-3:3000
+
+  5. Request Monitoring
+     reqtap -p 80 --log-file-enable --web-enable --web-export-enable
+
+Tips
+  - Use 'reqtap version' to check version information
+  - Use '--help' to see all available parameters
+  - For more configuration options, refer to the configuration file documentation`
+
+	fmt.Println(examples)
 }
 
 func printStartupBanner(cfg *config.Config, log logger.Logger) {
