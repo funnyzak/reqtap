@@ -46,6 +46,9 @@ brew tap funnyzak/reqtap
 
 # Install reqtap
 brew install reqtap
+
+# Upgrade reqtap
+brew update && brew upgrade reqtap
 ```
 
 #### Option 2: Using Installation Script

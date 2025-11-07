@@ -46,6 +46,9 @@ brew tap funnyzak/reqtap
 
 # 安装 reqtap
 brew install reqtap
+
+# 更新
+brew update && brew upgrade reqtap
 ```
 
 #### 选项 2：使用安装脚本
