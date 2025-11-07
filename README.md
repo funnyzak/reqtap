@@ -36,9 +36,21 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 
 ### 安装
 
-#### 选项 1：使用安装脚本（推荐）
+#### 选项 1：使用 Homebrew（推荐）
 
-最简单的安装方式是使用的安装脚本：
+macOS 用户首选的安装方式是使用 Homebrew：
+
+```bash
+# 添加 tap
+brew tap funnyzak/reqtap
+
+# 安装 reqtap
+brew install reqtap
+```
+
+#### 选项 2：使用安装脚本
+
+最简单的跨平台安装方式是使用的安装脚本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash
@@ -76,7 +88,7 @@ curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/instal
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s update
 ```
 
-#### 选项 2：下载预编译二进制文件
+#### 选项 3：下载预编译二进制文件
 
 1. 访问 [发布页面](https://github.com/funnyzak/reqtap/releases)
 2. 下载适合您平台的二进制文件：
@@ -95,7 +107,7 @@ curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/instal
    mv reqtap-* reqtap
    ```
 
-#### 选项 3：使用 Docker
+#### 选项 4：使用 Docker
 
 ```bash
 # 拉取最新镜像
@@ -108,7 +120,7 @@ docker run -p 38888:38888 funnyzak/reqtap:latest
 docker run -p 8080:38888 -v $(pwd)/config.yaml:/app/config.yaml funnyzak/reqtap:latest --config /app/config.yaml
 ```
 
-#### 选项 4：从源码构建
+#### 选项 5：从源码构建
 
 ```bash
 # 克隆仓库

@@ -36,9 +36,21 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 
 ### Installation
 
-#### Option 1: Using Installation Script (Recommended)
+#### Option 1: Using Homebrew (Recommended)
 
-The easiest way to install ReqTap is using installation script:
+The easiest way to install ReqTap on macOS is using Homebrew:
+
+```bash
+# Add the tap
+brew tap funnyzak/reqtap
+
+# Install reqtap
+brew install reqtap
+```
+
+#### Option 2: Using Installation Script
+
+The easiest cross-platform way to install ReqTap is using installation script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash
@@ -76,7 +88,7 @@ curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/instal
 curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/install.sh | bash -s update
 ```
 
-#### Option 2: Download Pre-compiled Binary
+#### Option 3: Download Pre-compiled Binary
 
 1. Go to the [Releases](https://github.com/funnyzak/reqtap/releases) page
 2. Download the appropriate binary for your platform:
@@ -95,7 +107,7 @@ curl -fsSL https://raw.githubusercontent.com/funnyzak/reqtap/main/scripts/instal
    mv reqtap-* reqtap
    ```
 
-#### Option 3: Using Docker
+#### Option 4: Using Docker
 
 ```bash
 # Pull the latest image
@@ -108,7 +120,7 @@ docker run -p 38888:38888 funnyzak/reqtap:latest
 docker run -p 8080:38888 -v $(pwd)/config.yaml:/app/config.yaml funnyzak/reqtap:latest --config /app/config.yaml
 ```
 
-#### Option 4: Build from Source
+#### Option 5: Build from Source
 
 ```bash
 # Clone the repository
