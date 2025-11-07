@@ -138,23 +138,23 @@ go build -o reqtap ./cmd/reqtap
 
 1. **Start with default settings**
    ```bash
-   ./reqtap
+   reqtap
    ```
    Listens on `http://0.0.0.0:38888/` by default
 
 2. **Custom port and path**
    ```bash
-   ./reqtap --port 8080 --path /reqtap/
+   reqtap --port 8080 --path /reqtap/
    ```
 
 3. **Enable file logging**
    ```bash
-   ./reqtap --log-file-enable --log-file-path ./reqtap.log
+   reqtap --log-file-enable --log-file-path ./reqtap.log
    ```
 
 4. **Forward to multiple targets**
    ```bash
-   ./reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
+   reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
    ```
 
 ## Web Dashboard
@@ -267,7 +267,7 @@ web:
 
 **Usage with configuration file:**
 ```bash
-./reqtap --config config.yaml
+reqtap --config config.yaml
 ```
 
 ### Environment Variables

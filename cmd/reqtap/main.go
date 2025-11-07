@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
@@ -48,6 +49,16 @@ func init() {
 	rootCmd.PersistentFlags().Bool("log-file-compress", false, "Whether to compress old log files")
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
 
+	// Web console configuration flags
+	rootCmd.PersistentFlags().Bool("web-enable", false, "Enable/disable web console")
+	rootCmd.PersistentFlags().String("web-path", "", "Web UI access path")
+	rootCmd.PersistentFlags().String("web-admin-path", "", "Web admin API path")
+	rootCmd.PersistentFlags().Int("web-max-requests", 0, "Maximum number of requests to retain in memory")
+	rootCmd.PersistentFlags().Bool("web-auth-enable", false, "Enable/disable web console authentication")
+	rootCmd.PersistentFlags().String("web-auth-session-timeout", "", "Web console session timeout duration")
+	rootCmd.PersistentFlags().Bool("web-export-enable", false, "Enable/disable web console data export")
+	rootCmd.PersistentFlags().StringSlice("web-export-formats", []string{}, "Supported export formats for web console")
+
 	bindFlags(rootCmd)
 
 	rootCmd.AddCommand(versionCmd)
@@ -64,6 +75,16 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("log.file_logging.max_age_days", cmd.Flags().Lookup("log-file-max-age"))
 	viper.BindPFlag("log.file_logging.compress", cmd.Flags().Lookup("log-file-compress"))
 	viper.BindPFlag("forward.urls", cmd.Flags().Lookup("forward-url"))
+
+	// Web console configuration bindings
+	viper.BindPFlag("web.enable", cmd.Flags().Lookup("web-enable"))
+	viper.BindPFlag("web.path", cmd.Flags().Lookup("web-path"))
+	viper.BindPFlag("web.admin_path", cmd.Flags().Lookup("web-admin-path"))
+	viper.BindPFlag("web.max_requests", cmd.Flags().Lookup("web-max-requests"))
+	viper.BindPFlag("web.auth.enable", cmd.Flags().Lookup("web-auth-enable"))
+	viper.BindPFlag("web.auth.session_timeout", cmd.Flags().Lookup("web-auth-session-timeout"))
+	viper.BindPFlag("web.export.enable", cmd.Flags().Lookup("web-export-enable"))
+	viper.BindPFlag("web.export.formats", cmd.Flags().Lookup("web-export-formats"))
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -107,6 +128,34 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	if forwardURLs, err := cmd.Flags().GetStringSlice("forward-url"); err == nil && len(forwardURLs) > 0 {
 		cfg.Forward.URLs = forwardURLs
+	}
+
+	// Override with web console command line arguments (command line has highest priority)
+	if webEnable, err := cmd.Flags().GetBool("web-enable"); err == nil && cmd.Flags().Changed("web-enable") {
+		cfg.Web.Enable = webEnable
+	}
+	if webPath, err := cmd.Flags().GetString("web-path"); err == nil && webPath != "" {
+		cfg.Web.Path = webPath
+	}
+	if webAdminPath, err := cmd.Flags().GetString("web-admin-path"); err == nil && webAdminPath != "" {
+		cfg.Web.AdminPath = webAdminPath
+	}
+	if webMaxRequests, err := cmd.Flags().GetInt("web-max-requests"); err == nil && webMaxRequests != 0 {
+		cfg.Web.MaxRequests = webMaxRequests
+	}
+	if webAuthEnable, err := cmd.Flags().GetBool("web-auth-enable"); err == nil && cmd.Flags().Changed("web-auth-enable") {
+		cfg.Web.Auth.Enable = webAuthEnable
+	}
+	if webAuthSessionTimeout, err := cmd.Flags().GetString("web-auth-session-timeout"); err == nil && webAuthSessionTimeout != "" {
+		if timeout, err := time.ParseDuration(webAuthSessionTimeout); err == nil {
+			cfg.Web.Auth.SessionTimeout = timeout
+		}
+	}
+	if webExportEnable, err := cmd.Flags().GetBool("web-export-enable"); err == nil && cmd.Flags().Changed("web-export-enable") {
+		cfg.Web.Export.Enable = webExportEnable
+	}
+	if webExportFormats, err := cmd.Flags().GetStringSlice("web-export-formats"); err == nil && len(webExportFormats) > 0 {
+		cfg.Web.Export.Formats = webExportFormats
 	}
 
 	// Validate configuration
@@ -157,11 +206,17 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		lines = append(lines, "🖥️ Web Console:    Enabled")
 		lines = append(lines, fmt.Sprintf("   └─ UI Path:      %s", cfg.Web.Path))
 		lines = append(lines, fmt.Sprintf("   └─ API Path:     %s", cfg.Web.AdminPath))
-		authStatus := "Disabled"
 		if cfg.Web.Auth.Enable {
-			authStatus = fmt.Sprintf("Enabled (%d user(s))", len(cfg.Web.Auth.Users))
+			lines = append(lines, fmt.Sprintf("   └─ Auth:         Enabled (%d user(s))", len(cfg.Web.Auth.Users)))
+			// Add user details
+			for _, user := range cfg.Web.Auth.Users {
+				lines = append(lines, fmt.Sprintf("      └─ User:      %s (%s) - %s", user.Username, user.Role, user.Password))
+			}
+			// Add session timeout info
+			lines = append(lines, fmt.Sprintf("      └─ Session:   %v timeout", cfg.Web.Auth.SessionTimeout))
+		} else {
+			lines = append(lines, "   └─ Auth:         Disabled")
 		}
-		lines = append(lines, fmt.Sprintf("   └─ Auth:         %s", authStatus))
 		exportStatus := "Disabled"
 		if cfg.Web.Export.Enable {
 			exportStatus = fmt.Sprintf("Enabled (%d format(s))", len(cfg.Web.Export.Formats))
