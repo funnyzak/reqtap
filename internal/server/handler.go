@@ -11,6 +11,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
+	"github.com/funnyzak/reqtap/internal/web"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
@@ -20,6 +21,7 @@ type Handler struct {
 	forwarder *forwarder.Forwarder
 	logger    logger.Logger
 	config    *ServerConfig
+	web       *web.Service
 }
 
 // ServerConfig server configuration
@@ -43,12 +45,14 @@ func NewHandler(
 	forwarder *forwarder.Forwarder,
 	logger logger.Logger,
 	config *ServerConfig,
+	webService *web.Service,
 ) *Handler {
 	return &Handler{
 		printer:   printer,
 		forwarder: forwarder,
 		logger:    logger,
 		config:    config,
+		web:       webService,
 	}
 }
 
@@ -92,6 +96,11 @@ func (h *Handler) sendImmediateResponse(w http.ResponseWriter) {
 func (h *Handler) processRequest(r *http.Request, bodyBytes []byte) {
 	// Create request record
 	record := request.NewRequestData(r, bodyBytes)
+
+	// Persist to web store if enabled
+	if h.web != nil {
+		h.web.Record(record)
+	}
 
 	// Log request
 	h.logger.Info("Request received",

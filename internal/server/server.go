@@ -9,10 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
+	"github.com/funnyzak/reqtap/internal/web"
 )
 
 // Server HTTP server
@@ -23,6 +26,7 @@ type Server struct {
 	forwarder *forwarder.Forwarder
 	printer   *printer.ConsolePrinter
 	httpSrv   *http.Server
+	web       *web.Service
 }
 
 // New creates a new server instance
@@ -52,8 +56,14 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		},
 	}
 
+	// Create web service if enabled
+	var webService *web.Service
+	if cfg.Web.Enable {
+		webService = web.NewService(&cfg.Web, log)
+	}
+
 	// Create handler
-	handler := NewHandler(printer, forwarder, log, serverConfig)
+	handler := NewHandler(printer, forwarder, log, serverConfig, webService)
 
 	return &Server{
 		config:    cfg,
@@ -61,21 +71,23 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		handler:   handler,
 		forwarder: forwarder,
 		printer:   printer,
+		web:       webService,
 	}
 }
 
 // Start starts the server
 func (s *Server) Start() error {
-	// Create multiplexer
-	mux := http.NewServeMux()
-
-	// Register handler
-	mux.HandleFunc("/", s.handleRequest)
+	// Create router
+	router := mux.NewRouter()
+	if s.web != nil {
+		s.web.RegisterRoutes(router)
+	}
+	router.PathPrefix("/").HandlerFunc(s.handleRequest)
 
 	// Create HTTP server
 	s.httpSrv = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.Server.Port),
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -131,6 +143,9 @@ func (s *Server) waitForShutdown() {
 
 	// Close forwarder
 	s.forwarder.Close()
+	if s.web != nil {
+		s.web.Close()
+	}
 
 	s.logger.Info("Server exited")
 }
@@ -140,7 +155,11 @@ func (s *Server) Stop() error {
 	if s.httpSrv != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		return s.httpSrv.Shutdown(ctx)
+		err := s.httpSrv.Shutdown(ctx)
+		if s.web != nil {
+			s.web.Close()
+		}
+		return err
 	}
 	return nil
 }

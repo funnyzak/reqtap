@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReqTap · Live Request Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.staticfile.org/tailwindcss/2.2.19/tailwind.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="./css/app.css" />
+  <!--REQTAP_CONFIG-->
+</head>
+
+<body class="min-h-screen text-slate-100 font-inter antialiased">
+  <div class="container mx-auto px-4 py-6 lg:py-8 mt-2 page-shell">
+    <header class="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <i class="fa-solid fa-wave-square text-emerald-400"></i>
+          ReqTap Live Monitor
+        </h1>
+        <p class="tagline">Capture and explore HTTP traffic with live filters, export, and detail drill-down.</p>
+      </div>
+      <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
+        <div class="user-chip">
+          <span class="text-slate-400">User</span>
+          <span id="current-user" class="font-semibold text-white">-</span>
+          <span id="current-role" class="text-xs uppercase tracking-wide text-emerald-300">-</span>
+        </div>
+        <span id="ws-status" class="status-pill inline-flex items-center gap-2">
+          <span class="indicator bg-yellow-400"></span>
+          <span class="status-label">Connecting</span>
+        </span>
+        <button id="logout-btn" class="action-btn action-btn--danger text-sm">
+          <i class="fa-solid fa-power-off"></i>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <section class="grid gap-4 lg:grid-cols-3 mb-6">
+      <div class="stat-card">
+        <p class="stat-card__title">Total Requests</p>
+        <p id="total-counter" class="stat-card__value">0</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__title">Filtered Result</p>
+        <p id="filtered-counter" class="stat-card__value">0</p>
+      </div>
+      <div id="export-section" class="stat-card flex items-center justify-between">
+        <div>
+          <p class="stat-card__title">Export Snapshot</p>
+          <p class="stat-card__hint">JSON or CSV</p>
+        </div>
+        <div class="flex gap-2">
+          <button data-format="json" class="export-btn bg-emerald-500/20 text-emerald-200">
+            JSON
+          </button>
+          <button data-format="csv" class="export-btn bg-cyan-500/20 text-cyan-200">
+            CSV
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="filters-panel p-4 mb-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div class="flex-1">
+          <label class="control-label">Search keyword</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input id="search-input" type="text" placeholder="URL, query, header, client IP..."
+              class="control-input pl-10 pr-3" />
+          </div>
+        </div>
+        <div class="w-full lg:w-48">
+          <label class="control-label">HTTP method</label>
+          <select id="method-filter" class="control-select">
+            <option value="">All</option>
+            <option>GET</option>
+            <option>POST</option>
+            <option>PUT</option>
+            <option>PATCH</option>
+            <option>DELETE</option>
+            <option>OPTIONS</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="refresh-btn" class="action-btn">
+            <i class="fa-solid fa-rotate"></i>
+            Refresh
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-shell mb-6">
+      <div class="overflow-auto">
+        <table class="min-w-full divide-y divide-slate-800 text-sm">
+          <thead>
+            <tr>
+              <th class="px-4 py-3 text-left">Timestamp</th>
+              <th class="px-4 py-3 text-left">Method</th>
+              <th class="px-4 py-3 text-left">Path</th>
+              <th class="px-4 py-3 text-left">Client IP</th>
+              <th class="px-4 py-3 text-left">User-Agent</th>
+              <th class="px-4 py-3 text-right">Size</th>
+            </tr>
+          </thead>
+          <tbody id="requests-body" class="divide-y divide-slate-900/60"></tbody>
+        </table>
+      </div>
+      <div id="empty-state" class="empty-state hidden">
+        No data yet. Waiting for fresh traffic...
+      </div>
+    </section>
+
+    <section class="repo-banner text-sm">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Repo</p>
+        <a href="https://github.com/funnyzak/reqtap" target="_blank" rel="noreferrer noopener">
+          github.com/funnyzak/reqtap
+        </a>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Author</p>
+        <span class="text-slate-100 font-semibold">funnyzak</span>
+      </div>
+    </section>
+  </div>
+
+  <div id="detail-modal"
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4 z-50">
+    <div class="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button id="detail-close"
+      class="sticky top-1 float-right mr-4 mb-4 z-10 text-slate-400 hover:text-white transition text-xl bg-slate-900/80 backdrop-blur-sm rounded-full p-2 hover:bg-slate-800/80">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="p-6 space-y-6 text-sm">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Overview</p>
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-4 space-y-2" id="detail-meta"></div>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Headers</p>
+          <pre id="detail-headers" class="code-block"></pre>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Body</p>
+          <pre id="detail-body" class="code-block"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <template id="row-template">
+    <tr class="hover:bg-slate-900/60 transition cursor-pointer">
+      <td class="px-4 py-3 font-mono text-xs text-slate-400"></td>
+      <td class="px-4 py-3 font-semibold"></td>
+      <td class="px-4 py-3 truncate max-w-[320px]"></td>
+      <td class="px-4 py-3 text-slate-300"></td>
+      <td class="px-4 py-3 text-slate-500 truncate max-w-[200px]"></td>
+      <td class="px-4 py-3 text-right font-mono text-xs text-slate-400"></td>
+    </tr>
+  </template>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+
+</html>

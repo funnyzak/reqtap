@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -12,6 +14,7 @@ type Config struct {
 	Server  ServerConfig  `yaml:"server"`
 	Log     LogConfig     `yaml:"log"`
 	Forward ForwardConfig `yaml:"forward"`
+	Web     WebConfig     `yaml:"web"`
 }
 
 // ServerConfig HTTP server configuration
@@ -42,6 +45,36 @@ type ForwardConfig struct {
 	Timeout       int      `yaml:"timeout"`
 	MaxRetries    int      `yaml:"max_retries"`
 	MaxConcurrent int      `yaml:"max_concurrent"`
+}
+
+// WebConfig web console configuration
+type WebConfig struct {
+	Enable      bool            `yaml:"enable"`
+	Path        string          `yaml:"path"`
+	AdminPath   string          `yaml:"admin_path"`
+	MaxRequests int             `yaml:"max_requests"`
+	Auth        WebAuthConfig   `yaml:"auth"`
+	Export      WebExportConfig `yaml:"export"`
+}
+
+// WebAuthConfig authentication configuration
+type WebAuthConfig struct {
+	Enable         bool            `yaml:"enable"`
+	SessionTimeout time.Duration   `yaml:"session_timeout"`
+	Users          []WebUserConfig `yaml:"users"`
+}
+
+// WebUserConfig user credential configuration
+type WebUserConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Role     string `yaml:"role"`
+}
+
+// WebExportConfig export configuration
+type WebExportConfig struct {
+	Enable  bool     `yaml:"enable"`
+	Formats []string `yaml:"formats"`
 }
 
 // LoadConfig load configuration
@@ -145,6 +178,41 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 	if cfg.Forward.MaxConcurrent == 0 {
 		cfg.Forward.MaxConcurrent = v.GetInt("forward.max_concurrent")
 	}
+
+	// Web configuration defaults
+	cfg.Web.Enable = v.GetBool("web.enable")
+	if cfg.Web.Path == "" {
+		cfg.Web.Path = v.GetString("web.path")
+	}
+	if cfg.Web.AdminPath == "" {
+		cfg.Web.AdminPath = v.GetString("web.admin_path")
+	}
+	if cfg.Web.MaxRequests == 0 {
+		cfg.Web.MaxRequests = v.GetInt("web.max_requests")
+	}
+
+	// Auth defaults
+	cfg.Web.Auth.Enable = v.GetBool("web.auth.enable")
+	if cfg.Web.Auth.SessionTimeout == 0 {
+		timeoutStr := v.GetString("web.auth.session_timeout")
+		if timeout, err := time.ParseDuration(timeoutStr); err == nil {
+			cfg.Web.Auth.SessionTimeout = timeout
+		} else {
+			cfg.Web.Auth.SessionTimeout = 24 * time.Hour
+		}
+	}
+	if len(cfg.Web.Auth.Users) == 0 {
+		var users []WebUserConfig
+		if err := v.UnmarshalKey("web.auth.users", &users); err == nil {
+			cfg.Web.Auth.Users = users
+		}
+	}
+
+	// Export defaults
+	cfg.Web.Export.Enable = v.GetBool("web.export.enable")
+	if len(cfg.Web.Export.Formats) == 0 {
+		cfg.Web.Export.Formats = v.GetStringSlice("web.export.formats")
+	}
 }
 
 // setDefaults set default configuration values
@@ -167,6 +235,20 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.timeout", 30)
 	v.SetDefault("forward.max_retries", 3)
 	v.SetDefault("forward.max_concurrent", 10)
+
+	// Web console defaults
+	v.SetDefault("web.enable", true)
+	v.SetDefault("web.path", "/web")
+	v.SetDefault("web.admin_path", "/api")
+	v.SetDefault("web.max_requests", 500)
+	v.SetDefault("web.auth.enable", true)
+	v.SetDefault("web.auth.session_timeout", "24h")
+	v.SetDefault("web.auth.users", []map[string]string{
+		{"username": "admin", "password": "admin123", "role": "admin"},
+		{"username": "user", "password": "user123", "role": "viewer"},
+	})
+	v.SetDefault("web.export.enable", true)
+	v.SetDefault("web.export.formats", []string{"json", "csv"})
 }
 
 // validate configuration
@@ -222,6 +304,55 @@ func (c *Config) Validate() error {
 	}
 	if c.Forward.MaxConcurrent < 1 {
 		return fmt.Errorf("forward max concurrent must be at least 1")
+	}
+
+	// Validate web configuration
+	if c.Web.Enable {
+		if c.Web.Path == "" {
+			return fmt.Errorf("web path cannot be empty")
+		}
+		if !strings.HasPrefix(c.Web.Path, "/") {
+			return fmt.Errorf("web path must start with '/'")
+		}
+		if c.Web.AdminPath == "" {
+			return fmt.Errorf("web admin path cannot be empty")
+		}
+		if !strings.HasPrefix(c.Web.AdminPath, "/") {
+			return fmt.Errorf("web admin path must start with '/'")
+		}
+		if c.Web.MaxRequests < 1 {
+			return fmt.Errorf("web max requests must be at least 1")
+		}
+
+		if c.Web.Auth.Enable {
+			if c.Web.Auth.SessionTimeout <= 0 {
+				return fmt.Errorf("web auth session timeout must be greater than zero")
+			}
+			if len(c.Web.Auth.Users) == 0 {
+				return fmt.Errorf("web auth requires at least one user")
+			}
+			validRoles := map[string]struct{}{"admin": {}, "viewer": {}}
+			for i, user := range c.Web.Auth.Users {
+				if user.Username == "" {
+					return fmt.Errorf("web auth user %d username cannot be empty", i+1)
+				}
+				if user.Password == "" {
+					return fmt.Errorf("web auth user %d password cannot be empty", i+1)
+				}
+				if user.Role == "" {
+					return fmt.Errorf("web auth user %d role cannot be empty", i+1)
+				}
+				if _, ok := validRoles[strings.ToLower(user.Role)]; !ok {
+					return fmt.Errorf("web auth user %d role must be admin or viewer", i+1)
+				}
+			}
+		}
+
+		if c.Web.Export.Enable {
+			if len(c.Web.Export.Formats) == 0 {
+				return fmt.Errorf("web export formats cannot be empty when export enabled")
+			}
+		}
 	}
 
 	return nil
