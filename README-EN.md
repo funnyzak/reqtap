@@ -13,7 +13,7 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 ## Features
 
 - **Instant Response** - Immediately returns 200 OK upon receiving requests, ensuring non-blocking client operations
-- **Rich Visual Output** - Beautiful colored terminal output with highlighting for HTTP methods, headers, and request bodies
+- **Rich Visual Output** - Beautiful colored terminal output that renders captured data in standard HTTP message layout with highlighting for methods, headers, and bodies
 - **Security-First** - Intelligent binary content detection and automatic sensitive information redaction
 - **Async Forwarding** - High-performance asynchronous request forwarding to multiple target URLs
 - **Comprehensive Logging** - Dual logging system with console output and structured file logging with automatic rotation
@@ -26,11 +26,11 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 
 ### Running
 
-![Running Preview](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
+![Running Preview](https://github.com/user-attachments/assets/725b948f-4f5e-407f-b2b2-9e4b6a0d4179)
 
 ### Real-time Console
 
-![Real-time Console](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
+![Real-time Console](https://github.com/user-attachments/assets/353ff050-0022-4779-b2ce-2bf186cf0707)
 
 ## Quick Start
 

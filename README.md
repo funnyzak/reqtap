@@ -13,7 +13,7 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 ## 特性
 
 - **即时响应** - 接收请求后立即返回 200 OK，确保客户端操作不阻塞
-- **丰富的可视化输出** - 美观的彩色终端输出，支持 HTTP 方法、头部和请求体的语法高亮
+- **丰富的可视化输出** - 美观的彩色终端输出，采用标准 HTTP 报文排版呈现请求行/头/体，并支持 HTTP 方法、头部和请求体的语法高亮
 - **安全优先** - 智能二进制内容检测和敏感信息自动脱敏
 - **异步转发** - 高性能异步请求转发到多个目标 URL
 - **全面日志记录** - 双日志系统，支持控制台输出和结构化文件日志，带自动轮转
@@ -26,11 +26,11 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 
 ### 运行预览
 
-![运行预览](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
+![运行预览](https://github.com/user-attachments/assets/725b948f-4f5e-407f-b2b2-9e4b6a0d4179)
 
 ### 实时控制台
 
-![实时控制台](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
+![实时控制台](https://github.com/user-attachments/assets/353ff050-0022-4779-b2ce-2bf186cf0707)
 
 ## 快速开始
 

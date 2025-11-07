@@ -34,6 +34,10 @@ func TestNewRequestData(t *testing.T) {
 		t.Errorf("Expected method POST, got %s", data.Method)
 	}
 
+	if data.Proto != "HTTP/1.1" {
+		t.Errorf("Expected proto HTTP/1.1, got %s", data.Proto)
+	}
+
 	if data.Path != "/test/path" {
 		t.Errorf("Expected path /test/path, got %s", data.Path)
 	}
