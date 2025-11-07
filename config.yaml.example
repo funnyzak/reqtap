@@ -88,4 +88,4 @@ web:
     # Enable data export APIs
     enable: true
     # Allowed export formats
-    formats: ["json", "csv"]
+    formats: ["json", "csv", "txt"]

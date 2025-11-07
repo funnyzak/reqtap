@@ -54,7 +54,7 @@
       <div id="export-section" class="stat-card flex items-center justify-between">
         <div>
           <p class="stat-card__title">Export Snapshot</p>
-          <p class="stat-card__hint">JSON or CSV</p>
+          <p class="stat-card__hint">JSON / CSV / Text</p>
         </div>
         <div class="flex gap-2">
           <button data-format="json" class="export-btn bg-emerald-500/20 text-emerald-200">
@@ -62,6 +62,9 @@
           </button>
           <button data-format="csv" class="export-btn bg-cyan-500/20 text-cyan-200">
             CSV
+          </button>
+          <button data-format="txt" class="export-btn bg-cyan-500/20 text-cyan-200">
+            Text
           </button>
         </div>
       </div>
@@ -137,7 +140,7 @@
 
   <div id="detail-modal"
     class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4 z-50">
-    <div class="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div class="detail-modal-panel w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl relative">
       <button id="detail-close"
       class="sticky top-1 float-right mr-4 mb-4 z-10 text-slate-400 hover:text-white transition text-xl bg-slate-900/80 backdrop-blur-sm rounded-full p-2 hover:bg-slate-800/80">
         <i class="fa-solid fa-xmark"></i>
@@ -146,6 +149,30 @@
         <div>
           <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Overview</p>
           <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-4 space-y-2" id="detail-meta"></div>
+        </div>
+        <div class="detail-action-wrapper" data-admin-only="true">
+          <div class="detail-action-bar">
+            <div class="detail-action-group">
+              <span class="detail-action-group__label">Request</span>
+              <div class="detail-action-buttons">
+                <button id="request-download-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Download request" title="Download request" aria-label="Download request">
+                  <i class="fa-solid fa-file-arrow-down"></i>
+                </button>
+                <button id="request-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Copy request" title="Copy request" aria-label="Copy request">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+              </div>
+            </div>
+              <div class="detail-action-group">
+              <span class="detail-action-group__label">Replay</span>
+              <div class="detail-action-buttons">
+                <button id="curl-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Copy cURL command" title="Copy cURL command" aria-label="Copy cURL command">
+                  <i class="fa-solid fa-terminal"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p id="detail-action-status" class="detail-action-status hidden"></p>
         </div>
         <div>
           <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Headers</p>

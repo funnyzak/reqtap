@@ -18,7 +18,7 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 - **异步转发** - 高性能异步请求转发到多个目标 URL
 - **全面日志记录** - 双日志系统，支持控制台输出和结构化文件日志，带自动轮转
 - **灵活配置** - 支持命令行参数、YAML 配置文件和环境变量
-- **实时 Web 控制台** - 基于 Session 的仪表盘，提供 WebSocket 实时流、筛选搜索、JSON/CSV 导出
+- **实时 Web 控制台** - 基于 Session 的仪表盘，提供 WebSocket 实时流、筛选搜索、JSON/CSV/文本导出
 - **跨平台** - 单一可执行文件，原生支持 Windows、macOS 和 Linux
 - **零依赖** - 自包含二进制文件，无外部运行时依赖
 
@@ -168,7 +168,8 @@ go build -o reqtap ./cmd/reqtap
 - 通过 WebSocket 实时流观察最新请求
 - 根据 HTTP 方法、路径、Query、头部或来源 IP 进行筛选/搜索
 - 在模态窗口中查看完整的请求详情（Headers + Body）
-- 一键导出当前视图为 JSON 或 CSV
+- 一键导出当前视图为 JSON、CSV 或纯文本
+- 管理员可对任一请求直接复制/下载 Request 报文、复制/下载固定 Response 报文，以及复制可直接重放的 cURL 命令
 
 控制台使用的 API 位于可配置的 `web.admin_path`（默认 `/api`）下：
 
@@ -178,7 +179,7 @@ go build -o reqtap ./cmd/reqtap
 | `POST` | `/api/auth/logout` | 退出登录 |
 | `GET`  | `/api/auth/me` | 获取当前用户信息 |
 | `GET`  | `/api/requests` | 查询最近请求，支持 `search`、`method`、`limit`、`offset` |
-| `GET`  | `/api/export` | 根据过滤条件导出 JSON/CSV |
+| `GET`  | `/api/export` | 根据过滤条件导出 JSON/CSV/TXT |
 | `GET`  | `/api/ws` | WebSocket 通道，实时推送新请求 |
 
 通过配置文件的 `web` 段可以调整访问路径、最大缓存数量，或完全关闭 Web 控制台。
@@ -265,7 +266,7 @@ web:
         role: "viewer"
   export:
     enable: true
-    formats: ["json", "csv"]
+    formats: ["json", "csv", "txt"]
 ```
 
 **使用配置文件：**

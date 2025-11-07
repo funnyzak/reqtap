@@ -18,7 +18,7 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 - **Async Forwarding** - High-performance asynchronous request forwarding to multiple target URLs
 - **Comprehensive Logging** - Dual logging system with console output and structured file logging with automatic rotation
 - **Flexible Configuration** - Support for command-line arguments, YAML configuration files, and environment variables
-- **Realtime Web Console** - Session-based dashboard with WebSocket streaming, filtering/search and one-click JSON/CSV export
+- **Realtime Web Console** - Session-based dashboard with WebSocket streaming, filtering/search and one-click JSON/CSV/TXT export
 - **Cross-Platform** - Single executable with native support for Windows, macOS, and Linux
 - **Zero Dependencies** - Self-contained binary with no external runtime requirements
 
@@ -168,7 +168,8 @@ ReqTap ships with a zero-dependency web console that is enabled by default. Once
 - Watch incoming requests in real-time via WebSocket streaming
 - Filter/search by HTTP method, path, query, headers, or origin IP
 - Inspect full request details (headers + body) in a modal panel
-- Export the current view as JSON or CSV with a single click
+- Export the current view as JSON, CSV, or plain text with a single click
+- (Admins only) Copy/download the full request payload, copy/download the default response payload, and grab a ready-to-run cURL command for any request
 
 APIs powering the dashboard live under the configurable `web.admin_path` (defaults to `/api`):
 
@@ -178,7 +179,7 @@ APIs powering the dashboard live under the configurable `web.admin_path` (defaul
 | `POST` | `/api/auth/logout` | Invalidate the current session |
 | `GET`  | `/api/auth/me` | Retrieve current user info |
 | `GET`  | `/api/requests` | List recent requests with optional `search`, `method`, `limit`, `offset` |
-| `GET`  | `/api/export` | Export filtered requests as JSON/CSV |
+| `GET`  | `/api/export` | Export filtered requests as JSON/CSV/TXT |
 | `GET`  | `/api/ws` | WebSocket stream broadcasting every new request |
 
 All paths are fully configurable through the `web` section of `config.yaml`, so the dashboard can be mounted under any prefix or disabled entirely.
@@ -265,7 +266,7 @@ web:
         role: "viewer"
   export:
     enable: true
-    formats: ["json", "csv"]
+    formats: ["json", "csv", "txt"]
 ```
 
 **Usage with configuration file:**
@@ -318,7 +319,7 @@ ReqTap is split into several loosely coupled internal packages, each responsible
 - **HTTP service layer (`internal/server`)** – A Gorilla Mux router receives traffic, and the `Handler` returns 200 OK as soon as the body is read, while the heavy work continues inside background goroutines.
 - **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, dashboard persistence/WebSocket streaming, and multi-target forwarding.
 - **Forwarder (`internal/forwarder`)** – Maintains a bounded worker pool, applies context timeouts plus exponential backoff retries, mirrors headers that matter, and injects `X-ReqTap-*` tracing headers for every target.
-- **Web console (`internal/web`, `internal/static`)** – Includes a ring-buffer `RequestStore`, session-based auth manager, WebSocket hub, JSON/CSV export helpers, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
+- **Web console (`internal/web`, `internal/static`)** – Includes a ring-buffer `RequestStore`, session-based auth manager, WebSocket hub, JSON/CSV/TXT export helpers, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
 - **Observability** – Every component logs through the shared `logger.Logger` interface so troubleshooting looks identical in the terminal and in file logs.
 
 ```text
