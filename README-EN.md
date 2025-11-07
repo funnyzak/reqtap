@@ -26,11 +26,11 @@ ReqTap is a powerful, cross-platform, zero-dependency command-line tool for inst
 
 ### Running
 
-![Running Preview](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
+![Running Preview](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
 
 ### Real-time Console
 
-![Real-time Console](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
+![Real-time Console](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
 
 ## Quick Start
 

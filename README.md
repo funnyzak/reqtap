@@ -26,11 +26,11 @@ ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即�
 
 ### 运行预览
 
-![运行预览](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
+![运行预览](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
 
 ### 实时控制台
 
-![实时控制台](https://github.com/user-attachments/assets/ee81b46a-28ff-4cfd-be56-53c2ba558cdc)
+![实时控制台](https://github.com/user-attachments/assets/dafd0977-b3f3-4a95-bb50-6247f88da6ac)
 
 ## 快速开始
 
