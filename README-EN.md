@@ -10,6 +10,22 @@
 
 ReqTap is a powerful, cross-platform, zero-dependency command-line tool for instantly capturing, inspecting, and forwarding HTTP requests. It serves as your ultimate "request blackhole" and "webhook debugger" for seamless HTTP request analysis.
 
+## Use Cases
+
+ReqTap is suitable for the following scenarios:
+
+- **Webhook development and debugging** - Receive and view HTTP notifications from other systems
+- **API interface testing and debugging** - Check if client-sent request data is correct
+- **Frontend development request analysis** - Analyze API requests sent by webpage JavaScript
+- **Microservices communication debugging** - Monitor HTTP calls between different services
+- **Network security auditing** - Capture and analyze suspicious network requests
+- **Payment callback handling** - Receive payment notifications from platforms like Alipay, WeChat Pay
+- **Automation workflow testing** - Test triggers from automation tools like Zapier, n8n
+- **HTTP protocol teaching demonstrations** - Visually demonstrate HTTP request structure and format
+- **System monitoring and troubleshooting** - Quickly test network connectivity and service availability
+- **Proxy and gateway development** - Use as a debugging tool for proxy servers
+- **Data collection and analysis** - Receive data reports from various devices or systems
+
 ## Features
 
 - **Instant Response** - Immediately returns 200 OK upon receiving requests, ensuring non-blocking client operations
@@ -299,6 +315,21 @@ export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
 
 # Start ReqTap
 ./reqtap
+```
+
+### Use Case Examples
+
+#### Webhook Debugging
+```bash
+# Listen on port 8080, enable web console, forward to local dev service
+reqtap --port 8080 --web.enable --forward-url http://localhost:3000/webhook
+```
+
+
+#### Security Auditing
+```bash
+# Detailed logging mode to record all request information
+reqtap --log-level debug --log-file-enable --log-file-path ./audit.log
 ```
 
 ### Configuration Priority
