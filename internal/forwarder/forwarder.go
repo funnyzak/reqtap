@@ -3,6 +3,7 @@ package forwarder
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,7 +24,14 @@ type Forwarder struct {
 	retries       int
 	maxConcurrent int
 	workerPool    chan struct{}
+	mu            sync.Mutex
+	cond          *sync.Cond
+	closed        bool
+	activeCalls   int
 }
+
+// ErrForwarderClosed indicates the forwarder has been shut down.
+var ErrForwarderClosed = errors.New("forwarder is closed")
 
 // NewForwarder creates new forwarder
 func NewForwarder(logger logger.Logger, timeout time.Duration, retries, maxConcurrent int) *Forwarder {
@@ -31,7 +39,7 @@ func NewForwarder(logger logger.Logger, timeout time.Duration, retries, maxConcu
 		maxConcurrent = 10 // Default max concurrent count
 	}
 
-	return &Forwarder{
+	f := &Forwarder{
 		client: &http.Client{
 			Timeout: timeout,
 			Transport: &http.Transport{
@@ -46,6 +54,8 @@ func NewForwarder(logger logger.Logger, timeout time.Duration, retries, maxConcu
 		maxConcurrent: maxConcurrent,
 		workerPool:    make(chan struct{}, maxConcurrent),
 	}
+	f.cond = sync.NewCond(&f.mu)
+	return f
 }
 
 // Forward forwards request to all configured URLs
@@ -53,6 +63,22 @@ func (f *Forwarder) Forward(ctx context.Context, data *request.RequestData, urls
 	if len(urls) == 0 {
 		return nil
 	}
+
+	f.mu.Lock()
+	if f.closed {
+		f.mu.Unlock()
+		return ErrForwarderClosed
+	}
+	f.activeCalls++
+	f.mu.Unlock()
+	defer func() {
+		f.mu.Lock()
+		f.activeCalls--
+		if f.activeCalls == 0 {
+			f.cond.Broadcast()
+		}
+		f.mu.Unlock()
+	}()
 
 	// Concurrently forward to all target URLs
 	var wg sync.WaitGroup
@@ -227,6 +253,17 @@ func (f *Forwarder) GetMaxConcurrent() int {
 
 // Close closes forwarder and cleans up resources
 func (f *Forwarder) Close() {
+	f.mu.Lock()
+	if f.closed {
+		f.mu.Unlock()
+		return
+	}
+	f.closed = true
+	for f.activeCalls > 0 {
+		f.cond.Wait()
+	}
+	f.mu.Unlock()
+
 	close(f.workerPool)
 
 	// Close idle connections of HTTP client

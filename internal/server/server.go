@@ -46,11 +46,12 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 
 	// Create server configuration
 	serverConfig := &ServerConfig{
-		Port:        cfg.Server.Port,
-		Path:        cfg.Server.Path,
-		ForwardURLs: cfg.Forward.URLs,
+		Port:         cfg.Server.Port,
+		Path:         cfg.Server.Path,
+		MaxBodyBytes: cfg.Server.MaxBodyBytes,
+		ForwardURLs:  cfg.Forward.URLs,
 		ForwardOpts: ForwardOptions{
-			Timeout:       30, // Default 30 seconds
+			Timeout:       cfg.Forward.Timeout,
 			MaxRetries:    cfg.Forward.MaxRetries,
 			MaxConcurrent: cfg.Forward.MaxConcurrent,
 		},

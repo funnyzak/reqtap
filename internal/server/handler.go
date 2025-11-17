@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -26,10 +27,11 @@ type Handler struct {
 
 // ServerConfig server configuration
 type ServerConfig struct {
-	Port        int
-	Path        string
-	ForwardURLs []string
-	ForwardOpts ForwardOptions
+	Port         int
+	Path         string
+	MaxBodyBytes int64
+	ForwardURLs  []string
+	ForwardOpts  ForwardOptions
 }
 
 // ForwardOptions forwarding options
@@ -38,6 +40,8 @@ type ForwardOptions struct {
 	MaxRetries    int // Maximum retry count
 	MaxConcurrent int // Maximum concurrent count
 }
+
+var errRequestBodyTooLarge = errors.New("request body exceeds configured limit")
 
 // NewHandler creates a new request handler
 func NewHandler(
@@ -59,14 +63,11 @@ func NewHandler(
 // ServeHTTP implements the http.Handler interface
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read request body before sending response
-	// This prevents "http: invalid Read on closed Body" error
-	bodyBytes, err := io.ReadAll(r.Body)
+	bodyBytes, err := h.readRequestBody(r)
 	if err != nil {
-		h.logger.Error("Failed to read request body", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleBodyReadError(w, err)
 		return
 	}
-	r.Body.Close()
 
 	// Send immediate response to client
 	h.sendImmediateResponse(w)
@@ -80,7 +81,6 @@ func (h *Handler) sendImmediateResponse(w http.ResponseWriter) {
 	// Set response headers
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Server", "ReqTap/1.0")
-	w.Header().Set("Connection", "close")
 
 	// Send status code and content
 	w.WriteHeader(http.StatusOK)
@@ -140,6 +140,37 @@ func (h *Handler) processRequest(r *http.Request, bodyBytes []byte) {
 	}
 
 	wg.Wait()
+}
+
+func (h *Handler) readRequestBody(r *http.Request) ([]byte, error) {
+	defer r.Body.Close()
+
+	if h.config.MaxBodyBytes <= 0 {
+		return io.ReadAll(r.Body)
+	}
+
+	limited := io.LimitReader(r.Body, h.config.MaxBodyBytes+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > h.config.MaxBodyBytes {
+		return nil, errRequestBodyTooLarge
+	}
+	return body, nil
+}
+
+func (h *Handler) handleBodyReadError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errRequestBodyTooLarge):
+		h.logger.Warn("Request body exceeds configured limit",
+			"limit_bytes", h.config.MaxBodyBytes,
+		)
+		http.Error(w, "Payload Too Large", http.StatusRequestEntityTooLarge)
+	default:
+		h.logger.Error("Failed to read request body", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // shouldHandlePath checks if the path should be handled

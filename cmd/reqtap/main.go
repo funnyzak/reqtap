@@ -56,6 +56,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Configuration file path")
 	rootCmd.PersistentFlags().IntP("port", "p", 0, "Listen port")
 	rootCmd.PersistentFlags().String("path", "", "URL path prefix to listen")
+	rootCmd.PersistentFlags().Int64("max-body-bytes", 0, "Maximum request body size in bytes (0 for unlimited)")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "", "Log level (trace, debug, info, warn, error, fatal, panic)")
 	rootCmd.PersistentFlags().Bool("log-file-enable", false, "Enable file logging")
 	rootCmd.PersistentFlags().String("log-file-path", "", "Log file path")
@@ -84,6 +85,7 @@ func init() {
 func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("server.port", cmd.Flags().Lookup("port"))
 	viper.BindPFlag("server.path", cmd.Flags().Lookup("path"))
+	viper.BindPFlag("server.max_body_bytes", cmd.Flags().Lookup("max-body-bytes"))
 	viper.BindPFlag("log.level", cmd.Flags().Lookup("log-level"))
 	viper.BindPFlag("log.file_logging.enable", cmd.Flags().Lookup("log-file-enable"))
 	viper.BindPFlag("log.file_logging.path", cmd.Flags().Lookup("log-file-path"))
@@ -121,6 +123,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	if path, err := cmd.Flags().GetString("path"); err == nil && path != "" {
 		cfg.Server.Path = path
+	}
+	if cmd.Flags().Changed("max-body-bytes") {
+		if maxBodyBytes, err := cmd.Flags().GetInt64("max-body-bytes"); err == nil {
+			cfg.Server.MaxBodyBytes = maxBodyBytes
+		}
 	}
 	if logLevel, err := cmd.Flags().GetString("log-level"); err == nil && logLevel != "" {
 		cfg.Log.Level = logLevel

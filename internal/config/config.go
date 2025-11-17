@@ -1,8 +1,6 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
@@ -23,6 +21,8 @@ type Config struct {
 type ServerConfig struct {
 	Port int    `yaml:"port"`
 	Path string `yaml:"path"`
+	// MaxBodyBytes limits the size of accepted request bodies (0 = unlimited)
+	MaxBodyBytes int64 `yaml:"max_body_bytes"`
 }
 
 // LogConfig log configuration
@@ -143,6 +143,9 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 	if cfg.Server.Path == "" {
 		cfg.Server.Path = v.GetString("server.path")
 	}
+	if cfg.Server.MaxBodyBytes == 0 {
+		cfg.Server.MaxBodyBytes = v.GetInt64("server.max_body_bytes")
+	}
 
 	// Log configuration - only apply defaults if zero (command line handled in main.go)
 	if cfg.Log.Level == "" {
@@ -222,6 +225,7 @@ func setDefaults(v *viper.Viper) {
 	// Server default configuration
 	v.SetDefault("server.port", 38888)
 	v.SetDefault("server.path", "/")
+	v.SetDefault("server.max_body_bytes", int64(10*1024*1024))
 
 	// Log default configuration
 	v.SetDefault("log.level", "info")
@@ -246,19 +250,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("web.auth.enable", true)
 	v.SetDefault("web.auth.session_timeout", "24h")
 	v.SetDefault("web.auth.users", []map[string]string{
-		{"username": "admin", "password": generateRandomPassword(10), "role": "admin"},
-		{"username": "user", "password": generateRandomPassword(10), "role": "viewer"},
+		{"username": "admin", "password": "admin123", "role": "admin"},
+		{"username": "user", "password": "user123", "role": "viewer"},
 	})
 	v.SetDefault("web.export.enable", true)
 	v.SetDefault("web.export.formats", []string{"json", "csv", "txt"})
-}
-
-func generateRandomPassword(length int) string {
-	buf := make([]byte, length)
-	if _, err := rand.Read(buf); err != nil {
-		return hex.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
-	}
-	return hex.EncodeToString(buf)
 }
 
 // validate configuration
@@ -271,6 +267,9 @@ func (c *Config) Validate() error {
 	// Validate path
 	if c.Server.Path == "" {
 		return fmt.Errorf("server path cannot be empty")
+	}
+	if c.Server.MaxBodyBytes < 0 {
+		return fmt.Errorf("server max body bytes cannot be negative")
 	}
 
 	// Validate log level

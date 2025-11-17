@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -36,14 +37,16 @@ type contextKey string
 
 // Service bundles web UI and API capabilities.
 type Service struct {
-	cfg      *config.WebConfig
-	logger   logger.Logger
-	store    *RequestStore
-	auth     *AuthManager
-	hub      *WebsocketHub
-	staticFS fs.FS
-	files    http.Handler
-	formats  []string
+	cfg         *config.WebConfig
+	logger      logger.Logger
+	store       *RequestStore
+	auth        *AuthManager
+	hub         *WebsocketHub
+	staticFS    fs.FS
+	files       http.Handler
+	formats     []string
+	cleanupStop chan struct{}
+	cleanupWG   sync.WaitGroup
 }
 
 // NewService builds a Service from configuration.
@@ -54,7 +57,7 @@ func NewService(cfg *config.WebConfig, log logger.Logger) *Service {
 	formats := AllowedFormats(cfg.Export.Formats)
 	assets := static.Assets
 
-	return &Service{
+	svc := &Service{
 		cfg:      cfg,
 		logger:   log,
 		store:    store,
@@ -64,6 +67,12 @@ func NewService(cfg *config.WebConfig, log logger.Logger) *Service {
 		files:    http.FileServer(http.FS(assets)),
 		formats:  formats,
 	}
+
+	if svc.auth.Enabled() {
+		svc.startSessionCleanup()
+	}
+
+	return svc
 }
 
 // RegisterRoutes wires HTTP routes into the provided router.
@@ -118,7 +127,48 @@ func (s *Service) Close() {
 	if s == nil {
 		return
 	}
+	if s.cleanupStop != nil {
+		close(s.cleanupStop)
+		s.cleanupWG.Wait()
+		s.cleanupStop = nil
+	}
 	s.hub.Close()
+}
+
+func (s *Service) startSessionCleanup() {
+	s.cleanupStop = make(chan struct{})
+	s.cleanupWG.Add(1)
+	go func() {
+		defer s.cleanupWG.Done()
+		ticker := time.NewTicker(s.sessionCleanupInterval())
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.auth.Cleanup()
+			case <-s.cleanupStop:
+				return
+			}
+		}
+	}()
+}
+
+func (s *Service) sessionCleanupInterval() time.Duration {
+	if s == nil || s.cfg == nil {
+		return time.Minute
+	}
+	timeout := s.cfg.Auth.SessionTimeout
+	if timeout <= 0 {
+		return time.Minute
+	}
+	interval := timeout / 2
+	if interval < time.Minute {
+		interval = time.Minute
+	}
+	if interval > 10*time.Minute {
+		interval = 10 * time.Minute
+	}
+	return interval
 }
 
 func (s *Service) handleRequests(w http.ResponseWriter, r *http.Request) {

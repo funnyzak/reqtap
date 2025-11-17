@@ -1,43 +1,26 @@
 # Repository Guidelines
 
-## Document Index
-- `README.md`: Feature and installation overview; prioritize the Chinese version.
-- `README-EN.md`: English quick start guide that can cross-reference this document.
-
 ## Project Structure & Module Organization
-- `cmd/reqtap`: Cobra CLI and HTTP server entrypoint; start development here.
-- `internal/`: Module-specific packages (`config`, `server`, `forwarder`, `web`, `printer`, `logger`, `static`); never create cross-directory circular dependencies.
-- `pkg/request`: Reusable public request models; add new exported types here and keep go doc updated.
-- `scripts/`: Installation and release scripts; when reusing a script, update the script index block as well.
-- `build/`, `dist/`, `logs/`, `coverage/`: Build and runtime artifacts; keep them covered by `.gitignore`.
+`cmd/reqtap/main.go` bootstraps the CLI, while request capture, forwarding, and web console code lives in `internal/` (`server`, `web`, `forwarder`, `static`, `printer`, `logger`). Reusable DTOs and helpers that may be imported elsewhere belong in `pkg/request`. Generated assets stay in `build/` or `dist/`, and configuration samples sit at `config.yaml.example`; installer logic is under `scripts/install.sh`.
 
 ## Build, Test, and Development Commands
-- `make deps`: Download dependencies and run `go mod tidy`; run after the first checkout or any Go version upgrade.
-- `make build` / `go build -o build/reqtap ./cmd/reqtap`: Produce a binary for the local platform with version metadata.
-- `make build-all`: Cross-compile batches of binaries into `dist/reqtap-<os>-<arch>`.
-- `make test`: Run `go test -v ./...`; execute at least once before submitting changes.
-- `make test-coverage`: Generate `coverage/coverage.html` to validate critical paths.
-- `make lint`: Run `golangci-lint run`; install the tool locally if missing.
+- `make build` – compile the platform binary into `build/reqtap`.
+- `make dev` – run the hot-reload workflow (requires `air`, falls back to `go run`).
+- `make check` – sequential `fmt`, `golangci-lint run`, and `go test`; gate every PR with it.
+- `make test-coverage` – emit `coverage/coverage.html` for quick diff-able reports.
+- `make docker-build && make docker-run` – validate the Docker image on `:38888`.
 
 ## Coding Style & Naming Conventions
-- Format all Go code with gofmt (`make fmt`) and goimports; follow the tool output for tabs/spaces.
-- Keep package and directory names short snake_case; export identifiers only when other packages need them and document with comments.
-- Configuration keys stay in `snake_case`, environment variables use the `REQTAP_` prefix, and log fields keep lower_snake names such as `request_id` and `target_url`.
-- Route any new bilingual CLI output through `internal/printer`; never call `fmt.Println` directly for user-facing messages.
+Keep Go sources `gofmt`-clean (tabs indentation, grouped imports). Use descriptive lowercase package names and PascalCase for exported types/functions. Favor short receiver names, wrap errors with context, and inject dependencies via constructors. Configuration defaults should be centralized in YAML or env lookups instead of literals.
 
 ## Testing Guidelines
-- Default to Go testing plus `github.com/stretchr/testify/assert`; name test files `xxx_test.go` and functions `TestComponent_Scenario`.
-- Target ≥80% coverage; mention coverage for new modules in the PR description and justify any gaps caused by IO or integration limits.
-- For web console or forwarding regressions, prefer simulations offered by `internal/server`.
-- After `make test-coverage`, attach the `coverage/coverage.html` screenshot or key metrics to the PR.
+Store unit tests next to the code they cover (`*_test.go`, e.g., `internal/config/config_test.go`). Follow `TestXxx` and table-driven patterns for request parsing, exporter filters, and forwarder retries. Run `go test -v ./...` (or `make test`) before pushes, and refresh coverage when touching concurrency or logging paths. Add regression tests when redaction, export formats, or websocket behavior changes.
 
 ## Commit & Pull Request Guidelines
-- Follow the `type: summary` format (for example `feat: add forwarder retries`, `chore:update deps`) and append `(#issue)` to match history.
-- Keep each commit logically atomic: separate code, config, and documentation; exclude generated artifacts.
-- Use the PR template: problem background, solution, verification method (logs/screenshots), regression risks, and include config diffs when relevant.
-- Link the associated Issue or Release Milestone; synchronize README and this guide when touching CLI or configuration behavior.
+Follow the existing history by using `<type>: <imperative summary>` (e.g., `docs: readme`) or a concise sentence plus PR reference (`Enhance export formats (#6)`). Keep commits focused, reference the related issue, and paste `make check` output plus any new screenshots for web assets. PR descriptions must note config or API impacts so downstream installers stay aligned.
 
 ## Security & Configuration Tips
-- Store secrets in `.env` or environment variables—never in `config.yaml`; if an example is needed, change `config.yaml.example` instead.
-- When debugging the web console locally, reset `web.admin_password`; never commit default weak credentials.
-- Any new external endpoint must route through the `internal/forwarder` allowlist and retry strategy; avoid hardcoding URLs elsewhere.
+Never embed credentials; point contributors to env vars or `config.yaml`. Override the sample `web.auth.users` accounts before demos, sanitize files under `logs/` before sharing, and rotate any `forward.urls` tokens after tests. Release artifacts pick up the same environment variables, so document required keys in README updates.
+
+## Documentation & Support Map
+Keep this file aligned with `README.md`, `README-EN.md`, and `config.yaml.example`. When new modules or scripts appear, summarize them in the READMEs and mention them here so the documentation index stays accurate.

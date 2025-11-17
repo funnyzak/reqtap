@@ -219,6 +219,7 @@ go build -o reqtap ./cmd/reqtap
   -c, --config string              配置文件路径 (默认 "config.yaml")
   -p, --port int                   监听端口 (默认 38888)
       --path string                要监听的 URL 路径前缀 (默认 "/")
+      --max-body-bytes int         单个请求体允许的最大大小（字节，0 表示无限制）(默认 10485760)
   -l, --log-level string           日志级别: trace, debug, info, warn, error, fatal, panic (默认 "info")
       --log-file-enable            启用文件日志
       --log-file-path string       日志文件路径 (默认 "./reqtap.log")
@@ -243,6 +244,7 @@ go build -o reqtap ./cmd/reqtap
 server:
   port: 38888
   path: "/"
+  max_body_bytes: 10485760  # 单个请求体的最大字节数，0 表示不限制
 
 # 日志配置
 log:
@@ -285,6 +287,8 @@ web:
     formats: ["json", "csv", "txt"]
 ```
 
+默认情况下会限制请求体为 10 MB，可通过 `server.max_body_bytes` 或 `--max-body-bytes` 调整，设置为 `0` 表示不做限制。
+
 **使用配置文件：**
 ```bash
 reqtap --config config.yaml
@@ -298,6 +302,7 @@ reqtap --config config.yaml
 # 服务器设置
 export REQTAP_SERVER_PORT=8080
 export REQTAP_SERVER_PATH="/reqtap"
+export REQTAP_SERVER_MAX_BODY_BYTES=2097152
 
 # 日志设置
 export REQTAP_LOG_LEVEL=debug

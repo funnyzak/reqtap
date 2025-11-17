@@ -219,6 +219,7 @@ Flags:
   -c, --config string              Configuration file path (default "config.yaml")
   -p, --port int                   Listen port (default 38888)
       --path string                URL path prefix to listen (default "/")
+      --max-body-bytes int         Maximum allowed request body size in bytes (0 for unlimited) (default 10485760)
   -l, --log-level string           Log level: trace, debug, info, warn, error, fatal, panic (default "info")
       --log-file-enable            Enable file logging
       --log-file-path string       Log file path (default "./reqtap.log")
@@ -243,6 +244,7 @@ Create a `config.yaml` file for persistent configuration:
 server:
   port: 38888
   path: "/"
+  max_body_bytes: 10485760  # Max request body size in bytes, 0 disables the limit
 
 # Logging Configuration
 log:
@@ -282,8 +284,10 @@ web:
         role: "viewer"
   export:
     enable: true
-    formats: ["json", "csv", "txt"]
+formats: ["json", "csv", "txt"]
 ```
+
+By default the request body size is capped at 10 MB. Adjust `server.max_body_bytes` or pass `--max-body-bytes` to change it; set the value to `0` to remove the limit entirely.
 
 **Usage with configuration file:**
 ```bash
@@ -298,6 +302,7 @@ All configuration options can be set via environment variables with the `REQTAP_
 # Server settings
 export REQTAP_SERVER_PORT=8080
 export REQTAP_SERVER_PATH="/reqtap"
+export REQTAP_SERVER_MAX_BODY_BYTES=2097152
 
 # Logging settings
 export REQTAP_LOG_LEVEL=debug
