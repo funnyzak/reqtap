@@ -8,19 +8,26 @@ import (
 
 // RequestData represents received HTTP request data
 type RequestData struct {
-	Timestamp     time.Time   `json:"timestamp"`
-	Method        string      `json:"method"`
-	Proto         string      `json:"proto"`
-	Path          string      `json:"path"`
-	Query         string      `json:"query"`
-	RemoteAddr    string      `json:"remote_addr"`
-	UserAgent     string      `json:"user_agent"`
-	Headers       http.Header `json:"headers"`
-	Body          []byte      `json:"body"`
-	ContentType   string      `json:"content_type"`
-	ContentLength int64       `json:"content_length"`
-	IsBinary      bool        `json:"is_binary"`
-	Size          int64       `json:"size"`
+	Timestamp     time.Time    `json:"timestamp"`
+	Method        string       `json:"method"`
+	Proto         string       `json:"proto"`
+	Path          string       `json:"path"`
+	Query         string       `json:"query"`
+	RemoteAddr    string       `json:"remote_addr"`
+	UserAgent     string       `json:"user_agent"`
+	Headers       http.Header  `json:"headers"`
+	Body          []byte       `json:"body"`
+	ContentType   string       `json:"content_type"`
+	ContentLength int64        `json:"content_length"`
+	IsBinary      bool         `json:"is_binary"`
+	Size          int64        `json:"size"`
+	MockResponse  MockResponse `json:"mock_response"`
+}
+
+// MockResponse summarizes inline response meta
+type MockResponse struct {
+	Rule   string `json:"rule"`
+	Status int    `json:"status"`
 }
 
 // NewRequestData creates new request data record

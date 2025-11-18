@@ -65,6 +65,8 @@ func init() {
 	rootCmd.PersistentFlags().Int("log-file-max-age", 0, "Maximum retention days for old log files")
 	rootCmd.PersistentFlags().Bool("log-file-compress", false, "Whether to compress old log files")
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
+	rootCmd.PersistentFlags().Bool("silence", false, "Suppress interactive console output")
+	rootCmd.PersistentFlags().Bool("json", false, "Emit structured JSON output")
 
 	// Web console configuration flags
 	rootCmd.PersistentFlags().Bool("web-enable", false, "Enable/disable web console")
@@ -104,6 +106,7 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("web.auth.session_timeout", cmd.Flags().Lookup("web-auth-session-timeout"))
 	viper.BindPFlag("web.export.enable", cmd.Flags().Lookup("web-export-enable"))
 	viper.BindPFlag("web.export.formats", cmd.Flags().Lookup("web-export-formats"))
+	viper.BindPFlag("output.silence", cmd.Flags().Lookup("silence"))
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -182,6 +185,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 		cfg.Web.Export.Formats = webExportFormats
 	}
 
+	if cmd.Flags().Changed("silence") {
+		if silence, err := cmd.Flags().GetBool("silence"); err == nil {
+			cfg.Output.Silence = silence
+		}
+	}
+	if jsonOutput, err := cmd.Flags().GetBool("json"); err == nil && jsonOutput {
+		cfg.Output.Mode = "json"
+	}
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
@@ -191,10 +203,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create logger
-	log := logger.NewLogger(&cfg.Log)
+	log := logger.NewLogger(&cfg.Log, cfg.Output.Mode)
 
 	// Display startup information
-	printStartupBanner(cfg, log)
+	if !cfg.Output.Silence && strings.ToLower(cfg.Output.Mode) != "json" {
+		printStartupBanner(cfg, log)
+	}
+	logStartupSummary(cfg, log)
 
 	// Create and start server
 	srv := server.New(cfg, log)
@@ -359,6 +374,16 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		lines = append(lines, "🔀 Forward Targets:  None")
 	}
 
+	// Mock responses summary
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("⚡ Mock Responses:  %s", formatMockResponseSummary(cfg)))
+
+	// Path strategy summary
+	lines = append(lines, fmt.Sprintf("🧩 Path Strategy:   %s", formatPathStrategySummary(cfg)))
+
+	// Output mode summary
+	lines = append(lines, fmt.Sprintf("🖨️ Output Mode:    %s (silence=%v)", strings.ToLower(cfg.Output.Mode), cfg.Output.Silence))
+
 	// File logging information
 	lines = append(lines, "")
 	if cfg.Log.FileLogging.Enable {
@@ -478,6 +503,55 @@ func printBoxBottom(width int) {
 // printBoxSeparator prints the separator line of the box
 func printBoxSeparator(width int) {
 	fmt.Printf("├%s┤\n", strings.Repeat("─", width-2))
+}
+
+func formatMockResponseSummary(cfg *config.Config) string {
+	count := len(cfg.Server.Responses)
+	if count == 0 {
+		return "None configured"
+	}
+	var names []string
+	for _, rule := range cfg.Server.Responses {
+		names = append(names, rule.Name)
+	}
+	return fmt.Sprintf("%d rule(s): %s", count, strings.Join(names, ", "))
+}
+
+func formatPathStrategySummary(cfg *config.Config) string {
+	mode := strings.ToLower(cfg.Forward.PathStrategy.Mode)
+	if mode == "" {
+		mode = "append"
+	}
+	switch mode {
+	case "strip_prefix":
+		prefix := cfg.Forward.PathStrategy.StripPrefix
+		if prefix == "" {
+			prefix = cfg.Server.Path
+		}
+		return fmt.Sprintf("strip_prefix (prefix=%s)", prefix)
+	case "rewrite":
+		ruleCount := len(cfg.Forward.PathStrategy.Rules)
+		return fmt.Sprintf("rewrite (%d rule(s))", ruleCount)
+	default:
+		return "append"
+	}
+}
+
+func logStartupSummary(cfg *config.Config, log logger.Logger) {
+	mode := strings.ToLower(cfg.Output.Mode)
+	var responseNames []string
+	for _, rule := range cfg.Server.Responses {
+		responseNames = append(responseNames, rule.Name)
+	}
+	log.Info("Startup configuration",
+		"port", cfg.Server.Port,
+		"path", cfg.Server.Path,
+		"responses", responseNames,
+		"forward_urls", cfg.Forward.URLs,
+		"path_strategy", formatPathStrategySummary(cfg),
+		"output_mode", mode,
+		"silence", cfg.Output.Silence,
+	)
 }
 
 // printBoxContent prints the content line of the box

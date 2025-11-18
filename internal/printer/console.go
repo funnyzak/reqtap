@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"unicode/utf8"
 
 	"github.com/dustin/go-humanize"
@@ -55,9 +54,6 @@ func NewColorScheme() *ColorScheme {
 		Query:          color.New(color.FgHiMagenta),
 	}
 }
-
-// Global request counter
-var requestCounter uint64
 
 // ConsolePrinter console printer
 type ConsolePrinter struct {
@@ -148,7 +144,7 @@ func NewConsolePrinter(logger logger.Logger) *ConsolePrinter {
 
 // PrintRequest prints request information using raw HTTP message layout
 func (p *ConsolePrinter) PrintRequest(data *request.RequestData) error {
-	requestNum := atomic.AddUint64(&requestCounter, 1)
+	requestNum := nextRequestNumber()
 	timestamp := data.Timestamp.Format("2006-01-02T15:04:05-07:00")
 	width := p.getTerminalWidth()
 

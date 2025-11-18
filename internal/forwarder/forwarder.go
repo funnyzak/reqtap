@@ -9,6 +9,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +31,16 @@ type Forwarder struct {
 	cond          *sync.Cond
 	closed        bool
 	activeCalls   int
+	pathStrategy  *pathStrategy
 }
+
+type pathStrategyMode string
+
+const (
+	pathModeAppend      pathStrategyMode = "append"
+	pathModeStripPrefix pathStrategyMode = "strip_prefix"
+	pathModeRewrite     pathStrategyMode = "rewrite"
+)
 
 // Options 转发器配置
 type Options struct {
@@ -44,6 +55,22 @@ type Options struct {
 	TLSHandshakeTimeout   time.Duration
 	ExpectContinueTimeout time.Duration
 	TLSInsecureSkipVerify bool
+	PathStrategy          PathStrategyOptions
+}
+
+// PathStrategyOptions configures how request paths are rewritten before forwarding
+type PathStrategyOptions struct {
+	Mode        string
+	StripPrefix string
+	Rules       []RewriteRuleOption
+}
+
+// RewriteRuleOption describes a single rewrite rule definition
+type RewriteRuleOption struct {
+	Name    string
+	Match   string
+	Replace string
+	Regex   bool
 }
 
 // ErrForwarderClosed indicates the forwarder has been shut down.
@@ -81,6 +108,7 @@ func NewForwarder(logger logger.Logger, opts Options) *Forwarder {
 		retries:       opts.Retries,
 		maxConcurrent: opts.MaxConcurrent,
 		workerPool:    make(chan struct{}, opts.MaxConcurrent),
+		pathStrategy:  newPathStrategy(opts.PathStrategy, logger),
 	}
 	f.cond = sync.NewCond(&f.mu)
 	return f
@@ -179,10 +207,23 @@ func (f *Forwarder) forwardToURL(ctx context.Context, data *request.RequestData,
 
 // doForward executes single forward
 func (f *Forwarder) doForward(ctx context.Context, data *request.RequestData, targetURL string, attempt int) error {
+	resolvedPath := data.Path
+	var appliedRule string
+	if f.pathStrategy != nil {
+		resolvedPath, appliedRule = f.pathStrategy.resolve(data.Path)
+	}
 	// Build target URL
-	targetURL = strings.TrimSuffix(targetURL, "/") + data.Path
+	targetURL = strings.TrimSuffix(targetURL, "/") + resolvedPath
 	if data.Query != "" {
 		targetURL += "?" + data.Query
+	}
+	if appliedRule != "" {
+		f.logger.Debug("Forward path strategy applied",
+			"rule", appliedRule,
+			"original_path", data.Path,
+			"resolved_path", resolvedPath,
+			"url", targetURL,
+		)
 	}
 
 	// Create request
@@ -316,4 +357,158 @@ func durationOrDefault(value, def time.Duration) time.Duration {
 		return value
 	}
 	return def
+}
+
+type pathStrategy struct {
+	mode        pathStrategyMode
+	stripPrefix string
+	rules       []rewriteRule
+}
+
+type rewriteRule struct {
+	name    string
+	match   string
+	replace string
+	regex   bool
+	expr    *regexp.Regexp
+}
+
+func newPathStrategy(opts PathStrategyOptions, log logger.Logger) *pathStrategy {
+	mode := pathStrategyMode(strings.ToLower(opts.Mode))
+	if mode == "" {
+		mode = pathModeAppend
+	}
+
+	switch mode {
+	case pathModeAppend:
+		return nil
+	case pathModeStripPrefix:
+		prefix := normalizeStripPrefix(opts.StripPrefix)
+		if prefix == "" {
+			return nil
+		}
+		return &pathStrategy{mode: mode, stripPrefix: prefix}
+	case pathModeRewrite:
+		rules := buildRewriteRules(opts.Rules, log)
+		if len(rules) == 0 {
+			return nil
+		}
+		return &pathStrategy{mode: mode, rules: rules}
+	default:
+		return nil
+	}
+}
+
+func (ps *pathStrategy) resolve(inputPath string) (string, string) {
+	if ps == nil {
+		return normalizeURLPath(inputPath), ""
+	}
+
+	switch ps.mode {
+	case pathModeStripPrefix:
+		cleanPath := normalizeURLPath(inputPath)
+		if ps.stripPrefix != "" && ps.stripPrefix != "/" && strings.HasPrefix(cleanPath, ps.stripPrefix) {
+			trimmed := strings.TrimPrefix(cleanPath, ps.stripPrefix)
+			if trimmed == "" {
+				trimmed = "/"
+			}
+			return normalizeURLPath(trimmed), string(ps.mode)
+		}
+		return cleanPath, ""
+	case pathModeRewrite:
+		cleanPath := normalizeURLPath(inputPath)
+		for _, rule := range ps.rules {
+			if rule.regex {
+				if rule.expr == nil || !rule.expr.MatchString(cleanPath) {
+					continue
+				}
+				replaced := rule.expr.ReplaceAllString(cleanPath, rule.replace)
+				return normalizeURLPath(replaced), rule.name
+			}
+			if rule.match != "" && strings.HasPrefix(cleanPath, rule.match) {
+				remainder := strings.TrimPrefix(cleanPath, rule.match)
+				newPath := concatURLPath(rule.replace, remainder)
+				return normalizeURLPath(newPath), rule.name
+			}
+		}
+		return cleanPath, ""
+	default:
+		return normalizeURLPath(inputPath), ""
+	}
+}
+
+func normalizeStripPrefix(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" || prefix == "/" {
+		return ""
+	}
+	return normalizeURLPath(prefix)
+}
+
+func buildRewriteRules(options []RewriteRuleOption, log logger.Logger) []rewriteRule {
+	var rules []rewriteRule
+	for idx, opt := range options {
+		rule := rewriteRule{
+			name:    opt.Name,
+			match:   strings.TrimSpace(opt.Match),
+			replace: strings.TrimSpace(opt.Replace),
+			regex:   opt.Regex,
+		}
+		if rule.name == "" {
+			rule.name = fmt.Sprintf("rewrite_rule_%d", idx+1)
+		}
+		if rule.regex {
+			if rule.match == "" {
+				continue
+			}
+			expr, err := regexp.Compile(rule.match)
+			if err != nil {
+				if log != nil {
+					log.Warn("Invalid rewrite regex skipped", "rule", rule.name, "error", err)
+				}
+				continue
+			}
+			rule.expr = expr
+			if rule.replace == "" {
+				rule.replace = "/"
+			}
+		} else {
+			rule.match = normalizeURLPath(rule.match)
+			if rule.match == "/" {
+				continue
+			}
+			if rule.replace == "" {
+				rule.replace = "/"
+			}
+			rule.replace = normalizeURLPath(rule.replace)
+		}
+		rules = append(rules, rule)
+	}
+	return rules
+}
+
+func normalizeURLPath(p string) string {
+	if p == "" {
+		return "/"
+	}
+	cleaned := path.Clean(p)
+	if cleaned == "." {
+		cleaned = "/"
+	}
+	if !strings.HasPrefix(cleaned, "/") {
+		cleaned = "/" + cleaned
+	}
+	return cleaned
+}
+
+func concatURLPath(base, remainder string) string {
+	base = normalizeURLPath(base)
+	remainder = strings.TrimLeft(remainder, "/")
+	if remainder == "" {
+		return base
+	}
+	if base == "/" {
+		return normalizeURLPath("/" + remainder)
+	}
+	return normalizeURLPath(base + "/" + remainder)
 }
