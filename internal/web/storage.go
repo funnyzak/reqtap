@@ -54,8 +54,12 @@ func (s *RequestStore) Add(data *request.RequestData) *StoredRequest {
 	defer s.mu.Unlock()
 
 	s.counter++
+	id := data.ID
+	if strings.TrimSpace(id) == "" {
+		id = generateRequestID(s.counter)
+	}
 	record := &StoredRequest{
-		ID:          generateRequestID(s.counter),
+		ID:          id,
 		RequestData: data,
 	}
 

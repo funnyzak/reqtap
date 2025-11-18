@@ -302,6 +302,19 @@ forward:
     #     match: "^/tenant/(.*)$"
     #     replace: "/$1"
     #     regex: true
+  # Header 过滤，黑名单先于白名单；白名单非空时只转发列出的 Header
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
 
 > **Forward 提示**
 > - `urls` 可配置多个下游地址，ReqTap 会并发发送，并遵循 `timeout`、`max_retries` 等限制。

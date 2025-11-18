@@ -21,17 +21,25 @@ import (
 
 // Forwarder request forwarder
 type Forwarder struct {
-	client        *http.Client
-	logger        logger.Logger
-	timeout       time.Duration
-	retries       int
-	maxConcurrent int
-	workerPool    chan struct{}
-	mu            sync.Mutex
-	cond          *sync.Cond
-	closed        bool
-	activeCalls   int
-	pathStrategy  *pathStrategy
+	client          *http.Client
+	logger          logger.Logger
+	timeout         time.Duration
+	retries         int
+	maxConcurrent   int
+	workerPool      chan struct{}
+	mu              sync.Mutex
+	cond            *sync.Cond
+	closed          bool
+	activeCalls     int
+	pathStrategy    *pathStrategy
+	headerBlacklist map[string]struct{}
+	headerWhitelist map[string]struct{}
+}
+
+// Client 抽象转发接口，便于注入 mock 或替换实现。
+type Client interface {
+	Forward(ctx context.Context, data *request.RequestData, urls []string) error
+	Close()
 }
 
 type pathStrategyMode string
@@ -56,6 +64,8 @@ type Options struct {
 	ExpectContinueTimeout time.Duration
 	TLSInsecureSkipVerify bool
 	PathStrategy          PathStrategyOptions
+	HeaderBlacklist       []string
+	HeaderWhitelist       []string
 }
 
 // PathStrategyOptions configures how request paths are rewritten before forwarding
@@ -103,12 +113,14 @@ func NewForwarder(logger logger.Logger, opts Options) *Forwarder {
 			Timeout:   opts.Timeout,
 			Transport: transport,
 		},
-		logger:        logger,
-		timeout:       opts.Timeout,
-		retries:       opts.Retries,
-		maxConcurrent: opts.MaxConcurrent,
-		workerPool:    make(chan struct{}, opts.MaxConcurrent),
-		pathStrategy:  newPathStrategy(opts.PathStrategy, logger),
+		logger:          logger,
+		timeout:         opts.Timeout,
+		retries:         opts.Retries,
+		maxConcurrent:   opts.MaxConcurrent,
+		workerPool:      make(chan struct{}, opts.MaxConcurrent),
+		pathStrategy:    newPathStrategy(opts.PathStrategy, logger),
+		headerBlacklist: toHeaderSet(normalizeHeaders(opts.HeaderBlacklist)),
+		headerWhitelist: toHeaderSet(normalizeHeaders(opts.HeaderWhitelist)),
 	}
 	f.cond = sync.NewCond(&f.mu)
 	return f
@@ -170,6 +182,7 @@ func (f *Forwarder) forwardToURL(ctx context.Context, data *request.RequestData,
 			select {
 			case <-ctx.Done():
 				f.logger.Info("Forward cancelled by context",
+					"request_id", data.ID,
 					"url", targetURL,
 					"attempt", attempt+1,
 				)
@@ -182,6 +195,7 @@ func (f *Forwarder) forwardToURL(ctx context.Context, data *request.RequestData,
 		err := f.doForward(ctx, data, targetURL, attempt)
 		if err == nil {
 			f.logger.Info("Request forwarded successfully",
+				"request_id", data.ID,
 				"url", targetURL,
 				"method", data.Method,
 				"path", data.Path,
@@ -192,6 +206,7 @@ func (f *Forwarder) forwardToURL(ctx context.Context, data *request.RequestData,
 
 		lastErr = err
 		f.logger.Warn("Forward attempt failed",
+			"request_id", data.ID,
 			"url", targetURL,
 			"error", err.Error(),
 			"attempt", attempt+1,
@@ -199,6 +214,7 @@ func (f *Forwarder) forwardToURL(ctx context.Context, data *request.RequestData,
 	}
 
 	f.logger.Error("All forward attempts failed",
+		"request_id", data.ID,
 		"url", targetURL,
 		"final_error", lastErr.Error(),
 		"total_attempts", f.retries+1,
@@ -273,27 +289,26 @@ func (f *Forwarder) doForward(ctx context.Context, data *request.RequestData, ta
 
 // shouldForwardHeader determines if specified header should be forwarded
 func (f *Forwarder) shouldForwardHeader(key string) bool {
-	lowerKey := strings.ToLower(key)
-
-	// Headers that should not be forwarded
-	skipHeaders := map[string]bool{
-		"host":                true, // Automatically set
-		"connection":          true, // Connection related
-		"keep-alive":          true,
-		"proxy-authenticate":  true,
-		"proxy-authorization": true,
-		"te":                  true,
-		"trailers":            true,
-		"transfer-encoding":   true,
-		"upgrade":             true,
-		"content-length":      true, // Will be automatically recalculated
-	}
-
-	if skipHeaders[lowerKey] {
+	lowerKey := strings.ToLower(strings.TrimSpace(key))
+	if lowerKey == "" {
 		return false
 	}
 
-	// For some sensitive headers, log warning but still forward (can be adjusted as needed)
+	// Always block blacklist entries first
+	if len(f.headerBlacklist) > 0 {
+		if _, blocked := f.headerBlacklist[lowerKey]; blocked {
+			return false
+		}
+	}
+
+	// If whitelist is provided, only forward those
+	if len(f.headerWhitelist) > 0 {
+		if _, allowed := f.headerWhitelist[lowerKey]; !allowed {
+			return false
+		}
+	}
+
+	// For some sensitive headers, log debug but still forward
 	sensitiveHeaders := map[string]bool{
 		"authorization": true,
 		"cookie":        true,
@@ -305,6 +320,32 @@ func (f *Forwarder) shouldForwardHeader(key string) bool {
 	}
 
 	return true
+}
+
+func normalizeHeaders(headers []string) []string {
+	if len(headers) == 0 {
+		return nil
+	}
+	norm := make([]string, 0, len(headers))
+	for _, h := range headers {
+		name := strings.ToLower(strings.TrimSpace(h))
+		if name == "" {
+			continue
+		}
+		norm = append(norm, name)
+	}
+	return norm
+}
+
+func toHeaderSet(list []string) map[string]struct{} {
+	if len(list) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(list))
+	for _, h := range list {
+		set[h] = struct{}{}
+	}
+	return set
 }
 
 // SetMaxConcurrent sets maximum concurrent count

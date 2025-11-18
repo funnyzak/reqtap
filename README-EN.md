@@ -301,6 +301,19 @@ forward:
     #     match: "^/tenant/(.*)$"
     #     replace: "/$1"
     #     regex: true
+  # Header filtering. Blacklist is applied first; when whitelist is non-empty, only listed headers are forwarded
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
 
 > **Forwarding tips**
 > - Populate `urls` with one or more downstream endpoints; ReqTap fans out to each while honoring `timeout`, `max_retries`, and concurrency limits.

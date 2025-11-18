@@ -112,6 +112,21 @@ forward:
     #     replace: "/$1"
     #     regex: true
 
+  # Header filtering
+  # Blacklist is applied first; whitelist (if non-empty) restricts forwarded headers to the listed names
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
+
 # Web console configuration
 web:
   # Enable web UI and APIs

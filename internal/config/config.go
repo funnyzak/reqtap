@@ -70,6 +70,8 @@ type ForwardConfig struct {
 	ExpectContinueTimeout int                       `yaml:"expect_continue_timeout" mapstructure:"expect_continue_timeout"`
 	TLSInsecureSkipVerify bool                      `yaml:"tls_insecure_skip_verify" mapstructure:"tls_insecure_skip_verify"`
 	PathStrategy          ForwardPathStrategyConfig `yaml:"path_strategy" mapstructure:"path_strategy"`
+	HeaderBlacklist       []string                  `yaml:"header_blacklist" mapstructure:"header_blacklist"`
+	HeaderWhitelist       []string                  `yaml:"header_whitelist" mapstructure:"header_whitelist"`
 }
 
 // ForwardPathStrategyConfig configures how target paths are constructed
@@ -275,6 +277,14 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 			cfg.Forward.PathStrategy.Rules = rules
 		}
 	}
+	if len(cfg.Forward.HeaderBlacklist) == 0 {
+		cfg.Forward.HeaderBlacklist = v.GetStringSlice("forward.header_blacklist")
+	}
+	if len(cfg.Forward.HeaderWhitelist) == 0 {
+		cfg.Forward.HeaderWhitelist = v.GetStringSlice("forward.header_whitelist")
+	}
+	cfg.Forward.HeaderBlacklist = normalizeHeaderList(cfg.Forward.HeaderBlacklist)
+	cfg.Forward.HeaderWhitelist = normalizeHeaderList(cfg.Forward.HeaderWhitelist)
 	cfg.Forward.TLSInsecureSkipVerify = v.GetBool("forward.tls_insecure_skip_verify")
 
 	// Web configuration defaults
@@ -355,6 +365,19 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.path_strategy.mode", "append")
 	v.SetDefault("forward.path_strategy.strip_prefix", "")
 	v.SetDefault("forward.path_strategy.rules", []map[string]string{})
+	v.SetDefault("forward.header_blacklist", []string{
+		"host",
+		"connection",
+		"keep-alive",
+		"proxy-authenticate",
+		"proxy-authorization",
+		"te",
+		"trailers",
+		"transfer-encoding",
+		"upgrade",
+		"content-length",
+	})
+	v.SetDefault("forward.header_whitelist", []string{})
 
 	// Web console defaults
 	v.SetDefault("web.enable", true)
@@ -479,6 +502,17 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	for i, h := range c.Forward.HeaderBlacklist {
+		if strings.TrimSpace(h) == "" {
+			return fmt.Errorf("forward header_blacklist[%d] cannot be empty", i)
+		}
+	}
+	for i, h := range c.Forward.HeaderWhitelist {
+		if strings.TrimSpace(h) == "" {
+			return fmt.Errorf("forward header_whitelist[%d] cannot be empty", i)
+		}
+	}
+
 	// Validate web configuration
 	if c.Web.Enable {
 		if c.Web.Path == "" {
@@ -540,4 +574,24 @@ func canonicalizeHeaders(headers map[string]string) map[string]string {
 		canonical[http.CanonicalHeaderKey(key)] = value
 	}
 	return canonical
+}
+
+func normalizeHeaderList(list []string) []string {
+	if len(list) == 0 {
+		return list
+	}
+	set := make(map[string]struct{}, len(list))
+	result := make([]string, 0, len(list))
+	for _, h := range list {
+		norm := strings.ToLower(strings.TrimSpace(h))
+		if norm == "" {
+			continue
+		}
+		if _, exists := set[norm]; exists {
+			continue
+		}
+		set[norm] = struct{}{}
+		result = append(result, norm)
+	}
+	return result
 }

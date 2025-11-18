@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,17 +22,22 @@ import (
 
 // Server HTTP server
 type Server struct {
-	config    *config.Config
-	logger    logger.Logger
-	handler   *Handler
-	forwarder *forwarder.Forwarder
-	printer   printer.Printer
-	httpSrv   *http.Server
-	web       *web.Service
+	config       *config.Config
+	logger       logger.Logger
+	handler      *Handler
+	forwarder    forwarder.Client
+	printer      printer.Printer
+	httpSrv      *http.Server
+	web          *web.Service
+	baseCtx      context.Context
+	cancel       context.CancelFunc
+	processingWG *sync.WaitGroup
 }
 
 // New creates a new server instance
 func New(cfg *config.Config, log logger.Logger) *Server {
+	baseCtx, cancel := context.WithCancel(context.Background())
+	procWG := &sync.WaitGroup{}
 	// Create printer based on output configuration
 	var reqPrinter printer.Printer
 	if !cfg.Output.Silence {
@@ -54,6 +60,8 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		ExpectContinueTimeout: time.Duration(cfg.Forward.ExpectContinueTimeout) * time.Second,
 		TLSInsecureSkipVerify: cfg.Forward.TLSInsecureSkipVerify,
 		PathStrategy:          buildForwardPathStrategyOptions(cfg),
+		HeaderBlacklist:       cfg.Forward.HeaderBlacklist,
+		HeaderWhitelist:       cfg.Forward.HeaderWhitelist,
 	})
 
 	// Create server configuration
@@ -77,15 +85,18 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 	}
 
 	// Create handler
-	handler := NewHandler(reqPrinter, forwarder, log, serverConfig, webService)
+	handler := NewHandler(reqPrinter, forwarder, log, serverConfig, webService, baseCtx, procWG)
 
 	return &Server{
-		config:    cfg,
-		logger:    log,
-		handler:   handler,
-		forwarder: forwarder,
-		printer:   reqPrinter,
-		web:       webService,
+		config:       cfg,
+		logger:       log,
+		handler:      handler,
+		forwarder:    forwarder,
+		printer:      reqPrinter,
+		web:          webService,
+		baseCtx:      baseCtx,
+		cancel:       cancel,
+		processingWG: procWG,
 	}
 }
 
@@ -239,10 +250,17 @@ func (s *Server) waitForShutdown() {
 	// Create shutdown context
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if s.cancel != nil {
+		s.cancel()
+	}
 
 	// Graceful shutdown
 	if err := s.httpSrv.Shutdown(ctx); err != nil {
 		s.logger.Error("Server forced to shutdown", "error", err)
+	}
+
+	if s.processingWG != nil {
+		s.processingWG.Wait()
 	}
 
 	// Close forwarder
@@ -259,7 +277,14 @@ func (s *Server) Stop() error {
 	if s.httpSrv != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		if s.cancel != nil {
+			s.cancel()
+		}
 		err := s.httpSrv.Shutdown(ctx)
+		if s.processingWG != nil {
+			s.processingWG.Wait()
+		}
+		s.forwarder.Close()
 		if s.web != nil {
 			s.web.Close()
 		}

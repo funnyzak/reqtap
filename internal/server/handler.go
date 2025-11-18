@@ -9,20 +9,23 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
-	"github.com/funnyzak/reqtap/internal/web"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
 // Handler HTTP request handler
 type Handler struct {
 	printer   printer.Printer
-	forwarder *forwarder.Forwarder
+	forwarder forwarder.Client
 	logger    logger.Logger
 	config    *ServerConfig
-	web       *web.Service
+	web       RequestRecorder
+	baseCtx   context.Context
+	procWG    *sync.WaitGroup
 }
 
 // ServerConfig server configuration
@@ -53,15 +56,23 @@ type ImmediateResponseRule struct {
 	Headers    map[string]string
 }
 
+// RequestRecorder 抽象存储接口，方便替换为不同的存储实现或测试桩。
+type RequestRecorder interface {
+	Record(*request.RequestData)
+	Close()
+}
+
 var errRequestBodyTooLarge = errors.New("request body exceeds configured limit")
 
 // NewHandler creates a new request handler
 func NewHandler(
 	printer printer.Printer,
-	forwarder *forwarder.Forwarder,
+	forwarder forwarder.Client,
 	logger logger.Logger,
 	config *ServerConfig,
-	webService *web.Service,
+	webService RequestRecorder,
+	baseCtx context.Context,
+	procWG *sync.WaitGroup,
 ) *Handler {
 	return &Handler{
 		printer:   printer,
@@ -69,6 +80,8 @@ func NewHandler(
 		logger:    logger,
 		config:    config,
 		web:       webService,
+		baseCtx:   baseCtx,
+		procWG:    procWG,
 	}
 }
 
@@ -85,7 +98,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	responseRule := h.sendImmediateResponse(w, r)
 
 	// Process request asynchronously with already read body
-	go h.processRequest(r, bodyBytes, responseRule)
+	h.procWG.Add(1)
+	go func() {
+		defer h.procWG.Done()
+		ctx, cancel := context.WithCancel(h.baseCtx)
+		defer cancel()
+		h.processRequest(ctx, r, bodyBytes, responseRule)
+	}()
 }
 
 // sendImmediateResponse sends immediate response
@@ -172,7 +191,7 @@ func (h *Handler) selectResponseRule(r *http.Request) *ImmediateResponseRule {
 }
 
 // processRequest processes request asynchronously
-func (h *Handler) processRequest(r *http.Request, bodyBytes []byte, responseRule *ImmediateResponseRule) {
+func (h *Handler) processRequest(ctx context.Context, r *http.Request, bodyBytes []byte, responseRule *ImmediateResponseRule) {
 	// Create request record
 	record := request.NewRequestData(r, bodyBytes)
 	record.MockResponse = h.toMockResponseSummary(responseRule)
@@ -184,6 +203,7 @@ func (h *Handler) processRequest(r *http.Request, bodyBytes []byte, responseRule
 
 	// Log request
 	h.logger.Info("Request received",
+		"request_id", record.ID,
 		"method", record.Method,
 		"path", record.Path,
 		"remote_addr", record.RemoteAddr,
@@ -194,36 +214,35 @@ func (h *Handler) processRequest(r *http.Request, bodyBytes []byte, responseRule
 		"mock_status", record.MockResponse.Status,
 	)
 
-	// Execute printing and forwarding concurrently
-	var wg sync.WaitGroup
+	group, groupCtx := errgroup.WithContext(ctx)
 
 	// Print to console
 	if h.printer != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		group.Go(func() error {
 			if err := h.printer.PrintRequest(record); err != nil {
-				h.logger.Error("Failed to print request", "error", err)
+				h.logger.Error("Failed to print request", "error", err, "request_id", record.ID)
 			}
-		}()
+			return nil
+		})
 	}
 
 	// Forward request
 	if len(h.config.ForwardURLs) > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(),
+		group.Go(func() error {
+			fctx, cancel := context.WithTimeout(groupCtx,
 				time.Duration(h.config.ForwardOpts.Timeout)*time.Second)
 			defer cancel()
 
-			if err := h.forwarder.Forward(ctx, record, h.config.ForwardURLs); err != nil {
-				h.logger.Error("Failed to forward request", "error", err)
+			if err := h.forwarder.Forward(fctx, record, h.config.ForwardURLs); err != nil {
+				h.logger.Error("Failed to forward request", "error", err, "request_id", record.ID)
 			}
-		}()
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := group.Wait(); err != nil {
+		h.logger.Warn("Request processing finished with errors", "error", err, "request_id", record.ID)
+	}
 }
 
 func (h *Handler) toMockResponseSummary(rule *ImmediateResponseRule) request.MockResponse {
