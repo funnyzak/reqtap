@@ -3,6 +3,7 @@ package forwarder
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -30,29 +31,56 @@ type Forwarder struct {
 	activeCalls   int
 }
 
+// Options 转发器配置
+type Options struct {
+	Timeout               time.Duration
+	Retries               int
+	MaxConcurrent         int
+	MaxIdleConns          int
+	MaxIdleConnsPerHost   int
+	MaxConnsPerHost       int
+	IdleConnTimeout       time.Duration
+	ResponseHeaderTimeout time.Duration
+	TLSHandshakeTimeout   time.Duration
+	ExpectContinueTimeout time.Duration
+	TLSInsecureSkipVerify bool
+}
+
 // ErrForwarderClosed indicates the forwarder has been shut down.
 var ErrForwarderClosed = errors.New("forwarder is closed")
 
 // NewForwarder creates new forwarder
-func NewForwarder(logger logger.Logger, timeout time.Duration, retries, maxConcurrent int) *Forwarder {
-	if maxConcurrent <= 0 {
-		maxConcurrent = 10 // Default max concurrent count
+func NewForwarder(logger logger.Logger, opts Options) *Forwarder {
+	if opts.MaxConcurrent <= 0 {
+		opts.MaxConcurrent = 10 // 默认并发控制
+	}
+
+	transport := &http.Transport{
+		MaxIdleConns:        positiveOrDefault(opts.MaxIdleConns, 200),
+		MaxIdleConnsPerHost: positiveOrDefault(opts.MaxIdleConnsPerHost, opts.MaxConcurrent),
+		MaxConnsPerHost:     positiveOrDefault(opts.MaxConnsPerHost, opts.MaxConcurrent*2),
+		IdleConnTimeout:     durationOrDefault(opts.IdleConnTimeout, 90*time.Second),
+		ResponseHeaderTimeout: durationOrDefault(
+			opts.ResponseHeaderTimeout,
+			15*time.Second,
+		),
+		TLSHandshakeTimeout:   durationOrDefault(opts.TLSHandshakeTimeout, 10*time.Second),
+		ExpectContinueTimeout: durationOrDefault(opts.ExpectContinueTimeout, 1*time.Second),
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: opts.TLSInsecureSkipVerify,
+		},
 	}
 
 	f := &Forwarder{
 		client: &http.Client{
-			Timeout: timeout,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-			},
+			Timeout:   opts.Timeout,
+			Transport: transport,
 		},
 		logger:        logger,
-		timeout:       timeout,
-		retries:       retries,
-		maxConcurrent: maxConcurrent,
-		workerPool:    make(chan struct{}, maxConcurrent),
+		timeout:       opts.Timeout,
+		retries:       opts.Retries,
+		maxConcurrent: opts.MaxConcurrent,
+		workerPool:    make(chan struct{}, opts.MaxConcurrent),
 	}
 	f.cond = sync.NewCond(&f.mu)
 	return f
@@ -183,7 +211,11 @@ func (f *Forwarder) doForward(ctx context.Context, data *request.RequestData, ta
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			f.logger.Warn("Failed to close response body", "error", cerr)
+		}
+	}()
 
 	// Read response (avoid connection pool issues)
 	_, err = io.Copy(io.Discard, resp.Body)
@@ -270,4 +302,18 @@ func (f *Forwarder) Close() {
 	if transport, ok := f.client.Transport.(*http.Transport); ok {
 		transport.CloseIdleConnections()
 	}
+}
+
+func positiveOrDefault(value, def int) int {
+	if value > 0 {
+		return value
+	}
+	return def
+}
+
+func durationOrDefault(value, def time.Duration) time.Duration {
+	if value > 0 {
+		return value
+	}
+	return def
 }

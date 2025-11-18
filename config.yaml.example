@@ -53,11 +53,33 @@ forward:
   # Timeout for forwarding requests (seconds)
   timeout: 30
 
+  # Response header timeout (seconds) for slow upstreams
+  response_header_timeout: 15
+
+  # TLS handshake timeout (seconds)
+  tls_handshake_timeout: 10
+
+  # Expect-Continue timeout (seconds)
+  expect_continue_timeout: 1
+
   # Number of retries on failure
   max_retries: 3
 
   # Maximum concurrent forwarding requests
   max_concurrent: 10
+
+  # Max idle connections (overall and per host)
+  max_idle_conns: 200
+  max_idle_conns_per_host: 50
+
+  # Max connections per host
+  max_conns_per_host: 100
+
+  # Idle connection timeout (seconds)
+  idle_conn_timeout: 90
+
+  # Skip TLS verification (not recommended for production)
+  tls_insecure_skip_verify: false
 
 # Web console configuration
 web:

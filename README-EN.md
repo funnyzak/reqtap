@@ -263,8 +263,16 @@ forward:
     - "http://localhost:3000/webhook"
     - "https://api.example.com/ingest"
   timeout: 30           # Request timeout in seconds
+  response_header_timeout: 15  # Timeout for response headers (seconds)
+  tls_handshake_timeout: 10    # TLS handshake timeout (seconds)
+  expect_continue_timeout: 1   # Expect-Continue wait time (seconds)
   max_retries: 3        # Maximum retry attempts
   max_concurrent: 10    # Maximum concurrent forwards
+  max_idle_conns: 200            # Max idle connections
+  max_idle_conns_per_host: 50    # Max idle connections per host
+  max_conns_per_host: 100        # Max connections per host
+  idle_conn_timeout: 90          # Idle connection timeout (seconds)
+  tls_insecure_skip_verify: false # Skip TLS verification (test only)
 
 # Web Console Configuration
 web:
@@ -355,7 +363,7 @@ ReqTap is split into several loosely coupled internal packages, each responsible
 - **HTTP service layer (`internal/server`)** – A Gorilla Mux router receives traffic, and the `Handler` returns 200 OK as soon as the body is read, while the heavy work continues inside background goroutines.
 - **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, dashboard persistence/WebSocket streaming, and multi-target forwarding.
 - **Forwarder (`internal/forwarder`)** – Maintains a bounded worker pool, applies context timeouts plus exponential backoff retries, mirrors headers that matter, and injects `X-ReqTap-*` tracing headers for every target.
-- **Web console (`internal/web`, `internal/static`)** – Includes a ring-buffer `RequestStore`, session-based auth manager, WebSocket hub, JSON/CSV/TXT export helpers, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
+- **Web console (`internal/web`, `internal/static`)** – Ring-buffer `RequestStore` with per-method index, session-based auth manager, WebSocket hub, JSON/CSV/TXT streaming exporters, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
 - **Observability** – Every component logs through the shared `logger.Logger` interface so troubleshooting looks identical in the terminal and in file logs.
 
 ```text

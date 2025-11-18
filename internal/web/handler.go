@@ -226,20 +226,26 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		Limit:  0,
 		Offset: 0,
 	}
-	items, _ := s.store.List(opts)
-
-	data, contentType, ext, err := ExportRequests(items, format)
+	contentType, ext, err := describeFormat(format)
 	if err != nil {
-		http.Error(w, "Failed to export data", http.StatusInternalServerError)
-		s.logger.Error("Export failed", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	filename := fmt.Sprintf("reqtap_requests_%d.%s", time.Now().Unix(), ext)
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	// 提前写入状态码，后续流式写入响应体
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+
+	_, _, err = StreamExport(w, func(yield func(*StoredRequest) bool) {
+		s.store.Iterate(opts, yield)
+	}, format)
+	if err != nil {
+		http.Error(w, "Failed to export data", http.StatusInternalServerError)
+		s.logger.Error("Export failed", "error", err)
+		return
+	}
 }
 
 func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {

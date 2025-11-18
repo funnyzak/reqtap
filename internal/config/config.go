@@ -47,6 +47,14 @@ type ForwardConfig struct {
 	Timeout       int      `yaml:"timeout"`
 	MaxRetries    int      `yaml:"max_retries"`
 	MaxConcurrent int      `yaml:"max_concurrent"`
+	MaxIdleConns           int  `yaml:"max_idle_conns"`
+	MaxIdleConnsPerHost    int  `yaml:"max_idle_conns_per_host"`
+	MaxConnsPerHost        int  `yaml:"max_conns_per_host"`
+	IdleConnTimeout        int  `yaml:"idle_conn_timeout"`
+	ResponseHeaderTimeout  int  `yaml:"response_header_timeout"`
+	TLSHandshakeTimeout    int  `yaml:"tls_handshake_timeout"`
+	ExpectContinueTimeout  int  `yaml:"expect_continue_timeout"`
+	TLSInsecureSkipVerify  bool `yaml:"tls_insecure_skip_verify"`
 }
 
 // WebConfig web console configuration
@@ -183,6 +191,28 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 	if cfg.Forward.MaxConcurrent == 0 {
 		cfg.Forward.MaxConcurrent = v.GetInt("forward.max_concurrent")
 	}
+	if cfg.Forward.MaxIdleConns == 0 {
+		cfg.Forward.MaxIdleConns = v.GetInt("forward.max_idle_conns")
+	}
+	if cfg.Forward.MaxIdleConnsPerHost == 0 {
+		cfg.Forward.MaxIdleConnsPerHost = v.GetInt("forward.max_idle_conns_per_host")
+	}
+	if cfg.Forward.MaxConnsPerHost == 0 {
+		cfg.Forward.MaxConnsPerHost = v.GetInt("forward.max_conns_per_host")
+	}
+	if cfg.Forward.IdleConnTimeout == 0 {
+		cfg.Forward.IdleConnTimeout = v.GetInt("forward.idle_conn_timeout")
+	}
+	if cfg.Forward.ResponseHeaderTimeout == 0 {
+		cfg.Forward.ResponseHeaderTimeout = v.GetInt("forward.response_header_timeout")
+	}
+	if cfg.Forward.TLSHandshakeTimeout == 0 {
+		cfg.Forward.TLSHandshakeTimeout = v.GetInt("forward.tls_handshake_timeout")
+	}
+	if cfg.Forward.ExpectContinueTimeout == 0 {
+		cfg.Forward.ExpectContinueTimeout = v.GetInt("forward.expect_continue_timeout")
+	}
+	cfg.Forward.TLSInsecureSkipVerify = v.GetBool("forward.tls_insecure_skip_verify")
 
 	// Web configuration defaults
 	cfg.Web.Enable = v.GetBool("web.enable")
@@ -241,6 +271,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.timeout", 30)
 	v.SetDefault("forward.max_retries", 3)
 	v.SetDefault("forward.max_concurrent", 10)
+	v.SetDefault("forward.max_idle_conns", 200)
+	v.SetDefault("forward.max_idle_conns_per_host", 50)
+	v.SetDefault("forward.max_conns_per_host", 100)
+	v.SetDefault("forward.idle_conn_timeout", 90)
+	v.SetDefault("forward.response_header_timeout", 15)
+	v.SetDefault("forward.tls_handshake_timeout", 10)
+	v.SetDefault("forward.expect_continue_timeout", 1)
+	v.SetDefault("forward.tls_insecure_skip_verify", false)
 
 	// Web console defaults
 	v.SetDefault("web.enable", true)

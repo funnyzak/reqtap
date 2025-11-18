@@ -263,8 +263,16 @@ forward:
     - "http://localhost:3000/webhook"
     - "https://api.example.com/ingest"
   timeout: 30           # 请求超时时间（秒）
+  response_header_timeout: 15  # 响应头超时时间（秒），防止上游挂起
+  tls_handshake_timeout: 10    # TLS 握手超时（秒）
+  expect_continue_timeout: 1   # Expect-Continue 等待时间（秒）
   max_retries: 3        # 最大重试次数
   max_concurrent: 10    # 最大并发转发数
+  max_idle_conns: 200            # 最大空闲连接数
+  max_idle_conns_per_host: 50    # 每主机最大空闲连接数
+  max_conns_per_host: 100        # 每主机最大连接数
+  idle_conn_timeout: 90          # 空闲连接超时（秒）
+  tls_insecure_skip_verify: false # 是否跳过 TLS 校验（仅限测试环境）
 
 # Web 控制台
 web:
@@ -354,7 +362,7 @@ ReqTap 由若干松耦合的内部包组成，每个包都负责请求生命周�
 - **HTTP 服务层（`internal/server`）**：利用 Gorilla Mux 构建路由，`Handler` 会在读取完请求体后立即返回 200 OK，真正的处理逻辑在后台 goroutine 中异步执行。
 - **请求处理流水线（`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`）**：`RequestData` 将原始 `http.Request` 规范化；随后通过 `sync.WaitGroup` fan-out 到控制台打印、Web 控制台入库/推送以及多目标转发，实现彼此独立的消费者。
 - **转发器（`internal/forwarder`）**：维持一个有界 worker 池，结合 `context.Context` 超时和指数退避重试策略，将请求复制到所有目标地址并补充 `X-ReqTap-*` 追踪头。
-- **Web 控制台（`internal/web`, `internal/static`）**：包含基于环形缓冲的 `RequestStore`、Session 登录管理、WebSocket 推送、JSON/CSV 导出和内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
+- **Web 控制台（`internal/web`, `internal/static`）**：包含基于环形缓冲与方法索引的 `RequestStore`、Session 登录管理、WebSocket 推送、JSON/CSV/TXT 流式导出以及内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
 - **可观测性**：所有组件都依赖同一个 `logger.Logger` 接口输出关键字段，便于在 CLI 与文件日志之间保持一致的调试体验。
 
 ```text

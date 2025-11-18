@@ -37,12 +37,19 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 	// Create forwarder
 	forwardTimeout := time.Duration(cfg.Forward.Timeout) * time.Second
 
-	forwarder := forwarder.NewForwarder(
-		log,
-		forwardTimeout,
-		cfg.Forward.MaxRetries,
-		cfg.Forward.MaxConcurrent,
-	)
+	forwarder := forwarder.NewForwarder(log, forwarder.Options{
+		Timeout:               forwardTimeout,
+		Retries:               cfg.Forward.MaxRetries,
+		MaxConcurrent:         cfg.Forward.MaxConcurrent,
+		MaxIdleConns:          cfg.Forward.MaxIdleConns,
+		MaxIdleConnsPerHost:   cfg.Forward.MaxIdleConnsPerHost,
+		MaxConnsPerHost:       cfg.Forward.MaxConnsPerHost,
+		IdleConnTimeout:       time.Duration(cfg.Forward.IdleConnTimeout) * time.Second,
+		ResponseHeaderTimeout: time.Duration(cfg.Forward.ResponseHeaderTimeout) * time.Second,
+		TLSHandshakeTimeout:   time.Duration(cfg.Forward.TLSHandshakeTimeout) * time.Second,
+		ExpectContinueTimeout: time.Duration(cfg.Forward.ExpectContinueTimeout) * time.Second,
+		TLSInsecureSkipVerify: cfg.Forward.TLSInsecureSkipVerify,
+	})
 
 	// Create server configuration
 	serverConfig := &ServerConfig{
