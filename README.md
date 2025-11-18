@@ -28,15 +28,17 @@ ReqTap 适用于以下场景：
 
 ## 特性
 
-- **即时响应** - 接收请求后立即返回 200 OK，确保客户端操作不阻塞
+- **可编排的即时响应** - 通过 `server.responses` 为不同路径/方法配置专属状态码、Body 和 Header，轻松模拟目标服务
 - **丰富的可视化输出** - 美观的彩色终端输出，采用标准 HTTP 报文排版呈现请求行/头/体，并支持 HTTP 方法、头部和请求体的语法高亮
 - **安全优先** - 智能二进制内容检测和敏感信息自动脱敏
 - **异步转发** - 高性能异步请求转发到多个目标 URL
+- **转发路径策略** - `append`、`strip_prefix`、`rewrite` 三种模式适配多环境 URL 差异
 - **全面日志记录** - 双日志系统，支持控制台输出和结构化文件日志，带自动轮转
 - **灵活配置** - 支持命令行参数、YAML 配置文件和环境变量
 - **实时 Web 控制台** - 基于 Session 的仪表盘，提供 WebSocket 实时流、筛选搜索、JSON/CSV/文本导出
 - **跨平台** - 单一可执行文件，原生支持 Windows、macOS 和 Linux
 - **零依赖** - 自包含二进制文件，无外部运行时依赖
+- **CI / 日志友好** - `--silence` 跳过富文本输出，`--json` 以结构化日志输出，易于接入管线
 
 ## 预览
 
@@ -159,7 +161,7 @@ go build -o reqtap ./cmd/reqtap
    ```bash
    reqtap
    ```
-   默认监听 `http://0.0.0.0:38888/`
+   默认监听 `http://0.0.0.0:38888/reqtap`
 
 2. **自定义端口和路径**
    ```bash
@@ -218,7 +220,8 @@ go build -o reqtap ./cmd/reqtap
 标志:
   -c, --config string              配置文件路径 (默认 "config.yaml")
   -p, --port int                   监听端口 (默认 38888)
-      --path string                要监听的 URL 路径前缀 (默认 "/")
+      --path string                要监听的 URL 路径前缀 (默认 "/reqtap")
+      --max-body-bytes int         单个请求体允许的最大大小（字节，0 表示无限制）(默认 10485760)
   -l, --log-level string           日志级别: trace, debug, info, warn, error, fatal, panic (默认 "info")
       --log-file-enable            启用文件日志
       --log-file-path string       日志文件路径 (默认 "./reqtap.log")
@@ -226,6 +229,8 @@ go build -o reqtap ./cmd/reqtap
       --log-file-max-backups int   保留的旧日志文件最大数量 (默认 5)
       --log-file-max-age int       旧日志文件的最大保留天数 (默认 30)
       --log-file-compress          是否压缩旧日志文件 (默认 true)
+      --silence                    静默模式，不打印 banner 和请求详情
+      --json                       输出 JSON 日志，便于 CI / 日志系统
   -f, --forward-url stringSlice    要转发请求的目标 URL
       --forward-timeout int        转发请求超时时间（秒）(默认 30)
       --forward-max-retries int    转发请求的最大重试次数 (默认 3)
@@ -242,7 +247,21 @@ go build -o reqtap ./cmd/reqtap
 # 服务器配置
 server:
   port: 38888
-  path: "/"
+  path: "/reqtap"
+  max_body_bytes: 10485760  # 单个请求体的最大字节数，0 表示不限制
+  responses:
+    - name: "demo-json"
+      methods: ["POST"]
+      path_prefix: "/reqtap/demo"
+      status: 202
+      body: '{"status":"queued"}'
+      headers:
+        Content-Type: application/json
+    - name: "default-ok"
+      status: 200
+      body: "ok"
+      headers:
+        Content-Type: text/plain
 
 # 日志配置
 log:
@@ -261,8 +280,46 @@ forward:
     - "http://localhost:3000/webhook"
     - "https://api.example.com/ingest"
   timeout: 30           # 请求超时时间（秒）
+  response_header_timeout: 15  # 响应头超时时间（秒），防止上游挂起
+  tls_handshake_timeout: 10    # TLS 握手超时（秒）
+  expect_continue_timeout: 1   # Expect-Continue 等待时间（秒）
   max_retries: 3        # 最大重试次数
   max_concurrent: 10    # 最大并发转发数
+  max_idle_conns: 200            # 最大空闲连接数
+  max_idle_conns_per_host: 50    # 每主机最大空闲连接数
+  max_conns_per_host: 100        # 每主机最大连接数
+  idle_conn_timeout: 90          # 空闲连接超时（秒）
+  tls_insecure_skip_verify: false # 是否跳过 TLS 校验（仅限测试环境）
+  path_strategy:
+    mode: "strip_prefix"        # append / strip_prefix / rewrite
+    strip_prefix: "/reqtap"     # strip_prefix 为空时默认使用 server.path
+    # rewrite 模式示例
+    # rules:
+    #   - name: "rewrite-service"
+    #     match: "/service"
+    #     replace: "/api"
+    #   - name: "regex-tenant"
+    #     match: "^/tenant/(.*)$"
+    #     replace: "/$1"
+    #     regex: true
+  # Header 过滤，黑名单先于白名单；白名单非空时只转发列出的 Header
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
+
+> **Forward 提示**
+> - `urls` 可配置多个下游地址，ReqTap 会并发发送，并遵循 `timeout`、`max_retries` 等限制。
+> - `path_strategy.mode` 为 `append` 时保持默认行为（直接拼接原始路径）；`strip_prefix` 会在转发前剥离监听前缀（默认使用 `server.path`）；`rewrite` 则按 `rules` 顺序执行前缀或正则改写。
+> - 例如：在本例配置下，外部命中的 `/reqtap/demo` 会被裁剪成 `/demo` 后再转发到目标 URL，减少多环境路径差异。
 
 # Web 控制台
 web:
@@ -283,7 +340,20 @@ web:
   export:
     enable: true
     formats: ["json", "csv", "txt"]
+
+# CLI 输出
+output:
+  mode: "console"   # console / json
+  silence: false     # true 时不打印彩色输出
 ```
+
+默认情况下会限制请求体为 10 MB，可通过 `server.max_body_bytes` 或 `--max-body-bytes` 调整，设置为 `0` 表示不做限制。
+
+其中：
+
+- `server.responses` 以声明式方式模拟不同的响应，支持 `path`、`path_prefix`、`methods` 组合匹配，第一条匹配即生效；`path`/`path_prefix` 必须写入包含 `server.path`（默认 `/reqtap`）的完整路径。
+- `forward.path_strategy` 允许在转发阶段去除监听前缀或执行自定义重写，避免多环境回调 URL 不一致。
+- `output.mode` 与 `output.silence` 分别控制彩色输出/JSON 行与静默模式，也可通过 `--json`、`--silence` 临时覆盖。
 
 **使用配置文件：**
 ```bash
@@ -298,6 +368,7 @@ reqtap --config config.yaml
 # 服务器设置
 export REQTAP_SERVER_PORT=8080
 export REQTAP_SERVER_PATH="/reqtap"
+export REQTAP_SERVER_MAX_BODY_BYTES=2097152
 
 # 日志设置
 export REQTAP_LOG_LEVEL=debug
@@ -312,6 +383,10 @@ export REQTAP_FORWARD_TIMEOUT=30
 export REQTAP_WEB_ENABLE=true
 export REQTAP_WEB_PATH="/console"
 export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
+
+# 输出模式
+export REQTAP_OUTPUT_MODE=json
+export REQTAP_OUTPUT_SILENCE=false
 
 # 启动 ReqTap
 ./reqtap
@@ -329,6 +404,12 @@ reqtap --port 8080 --web.enable --forward-url http://localhost:3000/webhook
 ```bash
 # 详细日志模式，记录所有请求信息
 reqtap --log-level debug --log-file-enable --log-file-path ./audit.log
+```
+
+#### CI / 日志管线
+```bash
+# 使用 JSON 输出便于解析，可搭配 --silence 禁用彩色输出
+reqtap --json --forward-url https://ci.local/collector
 ```
 
 ### 配置优先级
@@ -349,7 +430,7 @@ ReqTap 由若干松耦合的内部包组成，每个包都负责请求生命周�
 - **HTTP 服务层（`internal/server`）**：利用 Gorilla Mux 构建路由，`Handler` 会在读取完请求体后立即返回 200 OK，真正的处理逻辑在后台 goroutine 中异步执行。
 - **请求处理流水线（`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`）**：`RequestData` 将原始 `http.Request` 规范化；随后通过 `sync.WaitGroup` fan-out 到控制台打印、Web 控制台入库/推送以及多目标转发，实现彼此独立的消费者。
 - **转发器（`internal/forwarder`）**：维持一个有界 worker 池，结合 `context.Context` 超时和指数退避重试策略，将请求复制到所有目标地址并补充 `X-ReqTap-*` 追踪头。
-- **Web 控制台（`internal/web`, `internal/static`）**：包含基于环形缓冲的 `RequestStore`、Session 登录管理、WebSocket 推送、JSON/CSV 导出和内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
+- **Web 控制台（`internal/web`, `internal/static`）**：包含基于环形缓冲与方法索引的 `RequestStore`、Session 登录管理、WebSocket 推送、JSON/CSV/TXT 流式导出以及内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
 - **可观测性**：所有组件都依赖同一个 `logger.Logger` 接口输出关键字段，便于在 CLI 与文件日志之间保持一致的调试体验。
 
 ```text

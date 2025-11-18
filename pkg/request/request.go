@@ -1,6 +1,9 @@
 package request
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -8,26 +11,36 @@ import (
 
 // RequestData represents received HTTP request data
 type RequestData struct {
-	Timestamp     time.Time   `json:"timestamp"`
-	Method        string      `json:"method"`
-	Proto         string      `json:"proto"`
-	Path          string      `json:"path"`
-	Query         string      `json:"query"`
-	RemoteAddr    string      `json:"remote_addr"`
-	UserAgent     string      `json:"user_agent"`
-	Headers       http.Header `json:"headers"`
-	Body          []byte      `json:"body"`
-	ContentType   string      `json:"content_type"`
-	ContentLength int64       `json:"content_length"`
-	IsBinary      bool        `json:"is_binary"`
-	Size          int64       `json:"size"`
+	ID            string       `json:"id"`
+	Timestamp     time.Time    `json:"timestamp"`
+	Method        string       `json:"method"`
+	Proto         string       `json:"proto"`
+	Path          string       `json:"path"`
+	Query         string       `json:"query"`
+	RemoteAddr    string       `json:"remote_addr"`
+	UserAgent     string       `json:"user_agent"`
+	Headers       http.Header  `json:"headers"`
+	Body          []byte       `json:"body"`
+	ContentType   string       `json:"content_type"`
+	ContentLength int64        `json:"content_length"`
+	IsBinary      bool         `json:"is_binary"`
+	Size          int64        `json:"size"`
+	MockResponse  MockResponse `json:"mock_response"`
+}
+
+// MockResponse summarizes inline response meta
+type MockResponse struct {
+	Rule   string `json:"rule"`
+	Status int    `json:"status"`
 }
 
 // NewRequestData creates new request data record
 func NewRequestData(r *http.Request, body []byte) *RequestData {
+	id := generateRequestID()
 	contentType := r.Header.Get("Content-Type")
 
 	return &RequestData{
+		ID:            id,
 		Timestamp:     time.Now(),
 		Method:        r.Method,
 		Proto:         r.Proto,
@@ -104,4 +117,15 @@ func isBinaryContent(contentType string, body []byte) bool {
 	}
 
 	return false
+}
+
+// generateRequestID creates a random, URL-safe request identifier.
+func generateRequestID() string {
+	const idBytes = 12 // 12 bytes => 24 hex characters, compact but unique enough
+	b := make([]byte, idBytes)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based value to avoid returning empty ID
+		return fmt.Sprintf("REQ-%d", time.Now().UnixNano())
+	}
+	return strings.ToUpper(hex.EncodeToString(b))
 }

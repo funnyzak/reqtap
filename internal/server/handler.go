@@ -2,34 +2,40 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
-	"github.com/funnyzak/reqtap/internal/web"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
 // Handler HTTP request handler
 type Handler struct {
-	printer   *printer.ConsolePrinter
-	forwarder *forwarder.Forwarder
+	printer   printer.Printer
+	forwarder forwarder.Client
 	logger    logger.Logger
 	config    *ServerConfig
-	web       *web.Service
+	web       RequestRecorder
+	baseCtx   context.Context
+	procWG    *sync.WaitGroup
 }
 
 // ServerConfig server configuration
 type ServerConfig struct {
-	Port        int
-	Path        string
-	ForwardURLs []string
-	ForwardOpts ForwardOptions
+	Port         int
+	Path         string
+	MaxBodyBytes int64
+	ForwardURLs  []string
+	ForwardOpts  ForwardOptions
+	Responses    []ImmediateResponseRule
 }
 
 // ForwardOptions forwarding options
@@ -39,13 +45,34 @@ type ForwardOptions struct {
 	MaxConcurrent int // Maximum concurrent count
 }
 
+// ImmediateResponseRule describes a runtime response rule
+type ImmediateResponseRule struct {
+	Name       string
+	Methods    []string
+	Path       string
+	PathPrefix string
+	Status     int
+	Body       string
+	Headers    map[string]string
+}
+
+// RequestRecorder 抽象存储接口，方便替换为不同的存储实现或测试桩。
+type RequestRecorder interface {
+	Record(*request.RequestData)
+	Close()
+}
+
+var errRequestBodyTooLarge = errors.New("request body exceeds configured limit")
+
 // NewHandler creates a new request handler
 func NewHandler(
-	printer *printer.ConsolePrinter,
-	forwarder *forwarder.Forwarder,
+	printer printer.Printer,
+	forwarder forwarder.Client,
 	logger logger.Logger,
 	config *ServerConfig,
-	webService *web.Service,
+	webService RequestRecorder,
+	baseCtx context.Context,
+	procWG *sync.WaitGroup,
 ) *Handler {
 	return &Handler{
 		printer:   printer,
@@ -53,49 +80,121 @@ func NewHandler(
 		logger:    logger,
 		config:    config,
 		web:       webService,
+		baseCtx:   baseCtx,
+		procWG:    procWG,
 	}
 }
 
 // ServeHTTP implements the http.Handler interface
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read request body before sending response
-	// This prevents "http: invalid Read on closed Body" error
-	bodyBytes, err := io.ReadAll(r.Body)
+	bodyBytes, err := h.readRequestBody(r)
 	if err != nil {
-		h.logger.Error("Failed to read request body", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		h.handleBodyReadError(w, err)
 		return
 	}
-	r.Body.Close()
 
 	// Send immediate response to client
-	h.sendImmediateResponse(w)
+	responseRule := h.sendImmediateResponse(w, r)
 
 	// Process request asynchronously with already read body
-	go h.processRequest(r, bodyBytes)
+	h.procWG.Add(1)
+	go func() {
+		defer h.procWG.Done()
+		ctx, cancel := context.WithCancel(h.baseCtx)
+		defer cancel()
+		h.processRequest(ctx, r, bodyBytes, responseRule)
+	}()
 }
 
 // sendImmediateResponse sends immediate response
-func (h *Handler) sendImmediateResponse(w http.ResponseWriter) {
-	// Set response headers
-	w.Header().Set("Content-Type", "text/plain")
+func (h *Handler) sendImmediateResponse(w http.ResponseWriter, r *http.Request) *ImmediateResponseRule {
+	responseRule := h.selectResponseRule(r)
+	statusCode := http.StatusOK
+	body := []byte("ok")
+	defaultContentType := "text/plain"
+
+	if responseRule != nil {
+		statusCode = responseRule.Status
+		body = []byte(responseRule.Body)
+		hasContentType := false
+		for key, value := range responseRule.Headers {
+			if key == "" {
+				continue
+			}
+			w.Header().Set(key, value)
+			if strings.EqualFold(key, "Content-Type") {
+				hasContentType = true
+			}
+		}
+		if !hasContentType {
+			w.Header().Set("Content-Type", defaultContentType)
+		}
+		h.logger.Debug("Immediate mock response applied",
+			"rule", responseRule.Name,
+			"status", responseRule.Status,
+			"method", r.Method,
+			"path", r.URL.Path,
+		)
+	} else {
+		w.Header().Set("Content-Type", defaultContentType)
+	}
+
 	w.Header().Set("Server", "ReqTap/1.0")
-	w.Header().Set("Connection", "close")
+	w.WriteHeader(statusCode)
+	if len(body) > 0 {
+		w.Write(body)
+	}
 
-	// Send status code and content
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-
-	// Ensure response is sent immediately
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
+
+	return responseRule
+}
+
+func (h *Handler) selectResponseRule(r *http.Request) *ImmediateResponseRule {
+	if len(h.config.Responses) == 0 {
+		return nil
+	}
+
+	path := r.URL.Path
+	method := strings.ToUpper(r.Method)
+
+	for i := range h.config.Responses {
+		rule := &h.config.Responses[i]
+		if len(rule.Methods) > 0 {
+			matched := false
+			for _, allowed := range rule.Methods {
+				if method == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		if rule.Path != "" && rule.Path != path {
+			continue
+		}
+
+		if rule.PathPrefix != "" && !strings.HasPrefix(path, rule.PathPrefix) {
+			continue
+		}
+
+		return rule
+	}
+
+	return nil
 }
 
 // processRequest processes request asynchronously
-func (h *Handler) processRequest(r *http.Request, bodyBytes []byte) {
+func (h *Handler) processRequest(ctx context.Context, r *http.Request, bodyBytes []byte, responseRule *ImmediateResponseRule) {
 	// Create request record
 	record := request.NewRequestData(r, bodyBytes)
+	record.MockResponse = h.toMockResponseSummary(responseRule)
 
 	// Persist to web store if enabled
 	if h.web != nil {
@@ -104,42 +203,88 @@ func (h *Handler) processRequest(r *http.Request, bodyBytes []byte) {
 
 	// Log request
 	h.logger.Info("Request received",
+		"request_id", record.ID,
 		"method", record.Method,
 		"path", record.Path,
 		"remote_addr", record.RemoteAddr,
 		"user_agent", record.UserAgent,
 		"content_length", record.ContentLength,
 		"content_type", record.ContentType,
+		"mock_rule", record.MockResponse.Rule,
+		"mock_status", record.MockResponse.Status,
 	)
 
-	// Execute printing and forwarding concurrently
-	var wg sync.WaitGroup
+	group, groupCtx := errgroup.WithContext(ctx)
 
 	// Print to console
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := h.printer.PrintRequest(record); err != nil {
-			h.logger.Error("Failed to print request", "error", err)
-		}
-	}()
+	if h.printer != nil {
+		group.Go(func() error {
+			if err := h.printer.PrintRequest(record); err != nil {
+				h.logger.Error("Failed to print request", "error", err, "request_id", record.ID)
+			}
+			return nil
+		})
+	}
 
 	// Forward request
 	if len(h.config.ForwardURLs) > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(),
+		group.Go(func() error {
+			fctx, cancel := context.WithTimeout(groupCtx,
 				time.Duration(h.config.ForwardOpts.Timeout)*time.Second)
 			defer cancel()
 
-			if err := h.forwarder.Forward(ctx, record, h.config.ForwardURLs); err != nil {
-				h.logger.Error("Failed to forward request", "error", err)
+			if err := h.forwarder.Forward(fctx, record, h.config.ForwardURLs); err != nil {
+				h.logger.Error("Failed to forward request", "error", err, "request_id", record.ID)
 			}
-		}()
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := group.Wait(); err != nil {
+		h.logger.Warn("Request processing finished with errors", "error", err, "request_id", record.ID)
+	}
+}
+
+func (h *Handler) toMockResponseSummary(rule *ImmediateResponseRule) request.MockResponse {
+	if rule == nil {
+		return request.MockResponse{Status: http.StatusOK}
+	}
+
+	return request.MockResponse{
+		Rule:   rule.Name,
+		Status: rule.Status,
+	}
+}
+
+func (h *Handler) readRequestBody(r *http.Request) ([]byte, error) {
+	defer r.Body.Close()
+
+	if h.config.MaxBodyBytes <= 0 {
+		return io.ReadAll(r.Body)
+	}
+
+	limited := io.LimitReader(r.Body, h.config.MaxBodyBytes+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > h.config.MaxBodyBytes {
+		return nil, errRequestBodyTooLarge
+	}
+	return body, nil
+}
+
+func (h *Handler) handleBodyReadError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errRequestBodyTooLarge):
+		h.logger.Warn("Request body exceeds configured limit",
+			"limit_bytes", h.config.MaxBodyBytes,
+		)
+		http.Error(w, "Payload Too Large", http.StatusRequestEntityTooLarge)
+	default:
+		h.logger.Error("Failed to read request body", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // shouldHandlePath checks if the path should be handled

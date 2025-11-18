@@ -1,10 +1,9 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -13,16 +12,31 @@ import (
 
 // Config application configuration structure
 type Config struct {
-	Server  ServerConfig  `yaml:"server"`
-	Log     LogConfig     `yaml:"log"`
-	Forward ForwardConfig `yaml:"forward"`
-	Web     WebConfig     `yaml:"web"`
+	Server  ServerConfig  `yaml:"server" mapstructure:"server"`
+	Log     LogConfig     `yaml:"log" mapstructure:"log"`
+	Forward ForwardConfig `yaml:"forward" mapstructure:"forward"`
+	Web     WebConfig     `yaml:"web" mapstructure:"web"`
+	Output  OutputConfig  `yaml:"output" mapstructure:"output"`
 }
 
 // ServerConfig HTTP server configuration
 type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Path string `yaml:"path"`
+	Port int    `yaml:"port" mapstructure:"port"`
+	Path string `yaml:"path" mapstructure:"path"`
+	// MaxBodyBytes limits the size of accepted request bodies (0 = unlimited)
+	MaxBodyBytes int64                     `yaml:"max_body_bytes" mapstructure:"max_body_bytes"`
+	Responses    []ImmediateResponseConfig `yaml:"responses" mapstructure:"responses"`
+}
+
+// ImmediateResponseConfig describes an inline response rule for incoming requests
+type ImmediateResponseConfig struct {
+	Name       string            `yaml:"name" mapstructure:"name"`
+	Methods    []string          `yaml:"methods" mapstructure:"methods"`
+	Path       string            `yaml:"path" mapstructure:"path"`
+	PathPrefix string            `yaml:"path_prefix" mapstructure:"path_prefix"`
+	Status     int               `yaml:"status" mapstructure:"status"`
+	Body       string            `yaml:"body" mapstructure:"body"`
+	Headers    map[string]string `yaml:"headers" mapstructure:"headers"`
 }
 
 // LogConfig log configuration
@@ -43,40 +57,72 @@ type FileLogConfig struct {
 
 // ForwardConfig forwarding configuration
 type ForwardConfig struct {
-	URLs          []string `yaml:"urls"`
-	Timeout       int      `yaml:"timeout"`
-	MaxRetries    int      `yaml:"max_retries"`
-	MaxConcurrent int      `yaml:"max_concurrent"`
+	URLs                  []string                  `yaml:"urls" mapstructure:"urls"`
+	Timeout               int                       `yaml:"timeout" mapstructure:"timeout"`
+	MaxRetries            int                       `yaml:"max_retries" mapstructure:"max_retries"`
+	MaxConcurrent         int                       `yaml:"max_concurrent" mapstructure:"max_concurrent"`
+	MaxIdleConns          int                       `yaml:"max_idle_conns" mapstructure:"max_idle_conns"`
+	MaxIdleConnsPerHost   int                       `yaml:"max_idle_conns_per_host" mapstructure:"max_idle_conns_per_host"`
+	MaxConnsPerHost       int                       `yaml:"max_conns_per_host" mapstructure:"max_conns_per_host"`
+	IdleConnTimeout       int                       `yaml:"idle_conn_timeout" mapstructure:"idle_conn_timeout"`
+	ResponseHeaderTimeout int                       `yaml:"response_header_timeout" mapstructure:"response_header_timeout"`
+	TLSHandshakeTimeout   int                       `yaml:"tls_handshake_timeout" mapstructure:"tls_handshake_timeout"`
+	ExpectContinueTimeout int                       `yaml:"expect_continue_timeout" mapstructure:"expect_continue_timeout"`
+	TLSInsecureSkipVerify bool                      `yaml:"tls_insecure_skip_verify" mapstructure:"tls_insecure_skip_verify"`
+	PathStrategy          ForwardPathStrategyConfig `yaml:"path_strategy" mapstructure:"path_strategy"`
+	HeaderBlacklist       []string                  `yaml:"header_blacklist" mapstructure:"header_blacklist"`
+	HeaderWhitelist       []string                  `yaml:"header_whitelist" mapstructure:"header_whitelist"`
+}
+
+// ForwardPathStrategyConfig configures how target paths are constructed
+type ForwardPathStrategyConfig struct {
+	Mode        string                     `yaml:"mode" mapstructure:"mode"`
+	StripPrefix string                     `yaml:"strip_prefix" mapstructure:"strip_prefix"`
+	Rules       []ForwardRewriteRuleConfig `yaml:"rules" mapstructure:"rules"`
+}
+
+// ForwardRewriteRuleConfig defines a rewrite rule when mode is rewrite
+type ForwardRewriteRuleConfig struct {
+	Name    string `yaml:"name" mapstructure:"name"`
+	Match   string `yaml:"match" mapstructure:"match"`
+	Replace string `yaml:"replace" mapstructure:"replace"`
+	Regex   bool   `yaml:"regex" mapstructure:"regex"`
 }
 
 // WebConfig web console configuration
 type WebConfig struct {
-	Enable      bool            `yaml:"enable"`
-	Path        string          `yaml:"path"`
-	AdminPath   string          `yaml:"admin_path"`
-	MaxRequests int             `yaml:"max_requests"`
-	Auth        WebAuthConfig   `yaml:"auth"`
-	Export      WebExportConfig `yaml:"export"`
+	Enable      bool            `yaml:"enable" mapstructure:"enable"`
+	Path        string          `yaml:"path" mapstructure:"path"`
+	AdminPath   string          `yaml:"admin_path" mapstructure:"admin_path"`
+	MaxRequests int             `yaml:"max_requests" mapstructure:"max_requests"`
+	Auth        WebAuthConfig   `yaml:"auth" mapstructure:"auth"`
+	Export      WebExportConfig `yaml:"export" mapstructure:"export"`
 }
 
 // WebAuthConfig authentication configuration
 type WebAuthConfig struct {
-	Enable         bool            `yaml:"enable"`
-	SessionTimeout time.Duration   `yaml:"session_timeout"`
-	Users          []WebUserConfig `yaml:"users"`
+	Enable         bool            `yaml:"enable" mapstructure:"enable"`
+	SessionTimeout time.Duration   `yaml:"session_timeout" mapstructure:"session_timeout"`
+	Users          []WebUserConfig `yaml:"users" mapstructure:"users"`
 }
 
 // WebUserConfig user credential configuration
 type WebUserConfig struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Role     string `yaml:"role"`
+	Username string `yaml:"username" mapstructure:"username"`
+	Password string `yaml:"password" mapstructure:"password"`
+	Role     string `yaml:"role" mapstructure:"role"`
 }
 
 // WebExportConfig export configuration
 type WebExportConfig struct {
-	Enable  bool     `yaml:"enable"`
-	Formats []string `yaml:"formats"`
+	Enable  bool     `yaml:"enable" mapstructure:"enable"`
+	Formats []string `yaml:"formats" mapstructure:"formats"`
+}
+
+// OutputConfig controls CLI output style
+type OutputConfig struct {
+	Mode    string `yaml:"mode" mapstructure:"mode"`
+	Silence bool   `yaml:"silence" mapstructure:"silence"`
 }
 
 // LoadConfig load configuration
@@ -143,6 +189,18 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 	if cfg.Server.Path == "" {
 		cfg.Server.Path = v.GetString("server.path")
 	}
+	if cfg.Server.MaxBodyBytes == 0 {
+		cfg.Server.MaxBodyBytes = v.GetInt64("server.max_body_bytes")
+	}
+	if len(cfg.Server.Responses) == 0 {
+		var defaults []ImmediateResponseConfig
+		if err := v.UnmarshalKey("server.responses", &defaults); err == nil {
+			cfg.Server.Responses = defaults
+		}
+	}
+	for i := range cfg.Server.Responses {
+		cfg.Server.Responses[i].Headers = canonicalizeHeaders(cfg.Server.Responses[i].Headers)
+	}
 
 	// Log configuration - only apply defaults if zero (command line handled in main.go)
 	if cfg.Log.Level == "" {
@@ -168,6 +226,12 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 		cfg.Log.FileLogging.MaxAgeDays = v.GetInt("log.file_logging.max_age_days")
 	}
 
+	// Output configuration
+	if cfg.Output.Mode == "" {
+		cfg.Output.Mode = v.GetString("output.mode")
+	}
+	cfg.Output.Silence = v.GetBool("output.silence")
+
 	// Forward configuration - command line handled in main.go for URLs
 	// These don't have command line flags, so only apply defaults if zero
 	if cfg.Forward.Timeout == 0 {
@@ -180,6 +244,48 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 	if cfg.Forward.MaxConcurrent == 0 {
 		cfg.Forward.MaxConcurrent = v.GetInt("forward.max_concurrent")
 	}
+	if cfg.Forward.MaxIdleConns == 0 {
+		cfg.Forward.MaxIdleConns = v.GetInt("forward.max_idle_conns")
+	}
+	if cfg.Forward.MaxIdleConnsPerHost == 0 {
+		cfg.Forward.MaxIdleConnsPerHost = v.GetInt("forward.max_idle_conns_per_host")
+	}
+	if cfg.Forward.MaxConnsPerHost == 0 {
+		cfg.Forward.MaxConnsPerHost = v.GetInt("forward.max_conns_per_host")
+	}
+	if cfg.Forward.IdleConnTimeout == 0 {
+		cfg.Forward.IdleConnTimeout = v.GetInt("forward.idle_conn_timeout")
+	}
+	if cfg.Forward.ResponseHeaderTimeout == 0 {
+		cfg.Forward.ResponseHeaderTimeout = v.GetInt("forward.response_header_timeout")
+	}
+	if cfg.Forward.TLSHandshakeTimeout == 0 {
+		cfg.Forward.TLSHandshakeTimeout = v.GetInt("forward.tls_handshake_timeout")
+	}
+	if cfg.Forward.ExpectContinueTimeout == 0 {
+		cfg.Forward.ExpectContinueTimeout = v.GetInt("forward.expect_continue_timeout")
+	}
+	if cfg.Forward.PathStrategy.Mode == "" {
+		cfg.Forward.PathStrategy.Mode = v.GetString("forward.path_strategy.mode")
+	}
+	if cfg.Forward.PathStrategy.StripPrefix == "" {
+		cfg.Forward.PathStrategy.StripPrefix = v.GetString("forward.path_strategy.strip_prefix")
+	}
+	if len(cfg.Forward.PathStrategy.Rules) == 0 {
+		var rules []ForwardRewriteRuleConfig
+		if err := v.UnmarshalKey("forward.path_strategy.rules", &rules); err == nil {
+			cfg.Forward.PathStrategy.Rules = rules
+		}
+	}
+	if len(cfg.Forward.HeaderBlacklist) == 0 {
+		cfg.Forward.HeaderBlacklist = v.GetStringSlice("forward.header_blacklist")
+	}
+	if len(cfg.Forward.HeaderWhitelist) == 0 {
+		cfg.Forward.HeaderWhitelist = v.GetStringSlice("forward.header_whitelist")
+	}
+	cfg.Forward.HeaderBlacklist = normalizeHeaderList(cfg.Forward.HeaderBlacklist)
+	cfg.Forward.HeaderWhitelist = normalizeHeaderList(cfg.Forward.HeaderWhitelist)
+	cfg.Forward.TLSInsecureSkipVerify = v.GetBool("forward.tls_insecure_skip_verify")
 
 	// Web configuration defaults
 	cfg.Web.Enable = v.GetBool("web.enable")
@@ -221,7 +327,18 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 func setDefaults(v *viper.Viper) {
 	// Server default configuration
 	v.SetDefault("server.port", 38888)
-	v.SetDefault("server.path", "/")
+	v.SetDefault("server.path", "/reqtap")
+	v.SetDefault("server.max_body_bytes", int64(10*1024*1024))
+	v.SetDefault("server.responses", []map[string]interface{}{
+		{
+			"name":   "default-ok",
+			"status": 200,
+			"body":   "ok",
+			"headers": map[string]string{
+				"Content-Type": "text/plain",
+			},
+		},
+	})
 
 	// Log default configuration
 	v.SetDefault("log.level", "info")
@@ -237,6 +354,30 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("forward.timeout", 30)
 	v.SetDefault("forward.max_retries", 3)
 	v.SetDefault("forward.max_concurrent", 10)
+	v.SetDefault("forward.max_idle_conns", 200)
+	v.SetDefault("forward.max_idle_conns_per_host", 50)
+	v.SetDefault("forward.max_conns_per_host", 100)
+	v.SetDefault("forward.idle_conn_timeout", 90)
+	v.SetDefault("forward.response_header_timeout", 15)
+	v.SetDefault("forward.tls_handshake_timeout", 10)
+	v.SetDefault("forward.expect_continue_timeout", 1)
+	v.SetDefault("forward.tls_insecure_skip_verify", false)
+	v.SetDefault("forward.path_strategy.mode", "append")
+	v.SetDefault("forward.path_strategy.strip_prefix", "")
+	v.SetDefault("forward.path_strategy.rules", []map[string]string{})
+	v.SetDefault("forward.header_blacklist", []string{
+		"host",
+		"connection",
+		"keep-alive",
+		"proxy-authenticate",
+		"proxy-authorization",
+		"te",
+		"trailers",
+		"transfer-encoding",
+		"upgrade",
+		"content-length",
+	})
+	v.SetDefault("forward.header_whitelist", []string{})
 
 	// Web console defaults
 	v.SetDefault("web.enable", true)
@@ -246,19 +387,15 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("web.auth.enable", true)
 	v.SetDefault("web.auth.session_timeout", "24h")
 	v.SetDefault("web.auth.users", []map[string]string{
-		{"username": "admin", "password": generateRandomPassword(10), "role": "admin"},
-		{"username": "user", "password": generateRandomPassword(10), "role": "viewer"},
+		{"username": "admin", "password": "admin123", "role": "admin"},
+		{"username": "user", "password": "user123", "role": "viewer"},
 	})
 	v.SetDefault("web.export.enable", true)
 	v.SetDefault("web.export.formats", []string{"json", "csv", "txt"})
-}
 
-func generateRandomPassword(length int) string {
-	buf := make([]byte, length)
-	if _, err := rand.Read(buf); err != nil {
-		return hex.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
-	}
-	return hex.EncodeToString(buf)
+	// Output defaults
+	v.SetDefault("output.mode", "console")
+	v.SetDefault("output.silence", false)
 }
 
 // validate configuration
@@ -271,6 +408,37 @@ func (c *Config) Validate() error {
 	// Validate path
 	if c.Server.Path == "" {
 		return fmt.Errorf("server path cannot be empty")
+	}
+	if c.Server.MaxBodyBytes < 0 {
+		return fmt.Errorf("server max body bytes cannot be negative")
+	}
+	if len(c.Server.Responses) == 0 {
+		return fmt.Errorf("server responses configuration cannot be empty")
+	}
+	for i, resp := range c.Server.Responses {
+		if resp.Status < 100 || resp.Status > 599 {
+			return fmt.Errorf("server response %d status must be between 100 and 599", i+1)
+		}
+		if resp.Path != "" && !strings.HasPrefix(resp.Path, "/") {
+			return fmt.Errorf("server response %d path must start with '/'", i+1)
+		}
+		if resp.PathPrefix != "" && !strings.HasPrefix(resp.PathPrefix, "/") {
+			return fmt.Errorf("server response %d path_prefix must start with '/'", i+1)
+		}
+		for _, method := range resp.Methods {
+			if method == "" {
+				return fmt.Errorf("server response %d contains empty method", i+1)
+			}
+		}
+	}
+
+	switch strings.ToLower(c.Output.Mode) {
+	case "", "console", "json":
+		if c.Output.Mode == "" {
+			c.Output.Mode = "console"
+		}
+	default:
+		return fmt.Errorf("output mode must be 'console' or 'json'")
 	}
 
 	// Validate log level
@@ -314,6 +482,35 @@ func (c *Config) Validate() error {
 	}
 	if c.Forward.MaxConcurrent < 1 {
 		return fmt.Errorf("forward max concurrent must be at least 1")
+	}
+	switch strings.ToLower(c.Forward.PathStrategy.Mode) {
+	case "", "append", "strip_prefix", "rewrite":
+		if c.Forward.PathStrategy.Mode == "" {
+			c.Forward.PathStrategy.Mode = "append"
+		}
+	default:
+		return fmt.Errorf("forward path strategy mode must be append, strip_prefix, or rewrite")
+	}
+	if strings.ToLower(c.Forward.PathStrategy.Mode) == "rewrite" {
+		if len(c.Forward.PathStrategy.Rules) == 0 {
+			return fmt.Errorf("forward path strategy rules cannot be empty when mode is rewrite")
+		}
+		for i, rule := range c.Forward.PathStrategy.Rules {
+			if rule.Match == "" {
+				return fmt.Errorf("forward path rule %d match cannot be empty", i+1)
+			}
+		}
+	}
+
+	for i, h := range c.Forward.HeaderBlacklist {
+		if strings.TrimSpace(h) == "" {
+			return fmt.Errorf("forward header_blacklist[%d] cannot be empty", i)
+		}
+	}
+	for i, h := range c.Forward.HeaderWhitelist {
+		if strings.TrimSpace(h) == "" {
+			return fmt.Errorf("forward header_whitelist[%d] cannot be empty", i)
+		}
 	}
 
 	// Validate web configuration
@@ -366,4 +563,35 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func canonicalizeHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return headers
+	}
+	canonical := make(map[string]string, len(headers))
+	for key, value := range headers {
+		canonical[http.CanonicalHeaderKey(key)] = value
+	}
+	return canonical
+}
+
+func normalizeHeaderList(list []string) []string {
+	if len(list) == 0 {
+		return list
+	}
+	set := make(map[string]struct{}, len(list))
+	result := make([]string, 0, len(list))
+	for _, h := range list {
+		norm := strings.ToLower(strings.TrimSpace(h))
+		if norm == "" {
+			continue
+		}
+		if _, exists := set[norm]; exists {
+			continue
+		}
+		set[norm] = struct{}{}
+		result = append(result, norm)
+	}
+	return result
 }

@@ -28,15 +28,17 @@ ReqTap is suitable for the following scenarios:
 
 ## Features
 
-- **Instant Response** - Immediately returns 200 OK upon receiving requests, ensuring non-blocking client operations
+- **Programmable Instant Responses** - Define multiple `server.responses` rules to return custom status codes/bodies/headers per path or method
 - **Rich Visual Output** - Beautiful colored terminal output that renders captured data in standard HTTP message layout with highlighting for methods, headers, and bodies
 - **Security-First** - Intelligent binary content detection and automatic sensitive information redaction
 - **Async Forwarding** - High-performance asynchronous request forwarding to multiple target URLs
+- **Forwarding Path Strategies** - Switch between `append`, `strip_prefix`, or custom `rewrite` rules to normalize upstream paths
 - **Comprehensive Logging** - Dual logging system with console output and structured file logging with automatic rotation
 - **Flexible Configuration** - Support for command-line arguments, YAML configuration files, and environment variables
 - **Realtime Web Console** - Session-based dashboard with WebSocket streaming, filtering/search and one-click JSON/CSV/TXT export
 - **Cross-Platform** - Single executable with native support for Windows, macOS, and Linux
 - **Zero Dependencies** - Self-contained binary with no external runtime requirements
+- **CI-friendly Output** - `--silence` suppresses rich TTY output while `--json` emits structured logs for pipelines
 
 ## Preview
 
@@ -159,7 +161,7 @@ go build -o reqtap ./cmd/reqtap
    ```bash
    reqtap
    ```
-   Listens on `http://0.0.0.0:38888/` by default
+   Listens on `http://0.0.0.0:38888/reqtap` by default
 
 2. **Custom port and path**
    ```bash
@@ -217,8 +219,9 @@ Usage:
 
 Flags:
   -c, --config string              Configuration file path (default "config.yaml")
-  -p, --port int                   Listen port (default 38888)
-      --path string                URL path prefix to listen (default "/")
+ -p, --port int                   Listen port (default 38888)
+      --path string                URL path prefix to listen (default "/reqtap")
+      --max-body-bytes int         Maximum allowed request body size in bytes (0 for unlimited) (default 10485760)
   -l, --log-level string           Log level: trace, debug, info, warn, error, fatal, panic (default "info")
       --log-file-enable            Enable file logging
       --log-file-path string       Log file path (default "./reqtap.log")
@@ -226,6 +229,8 @@ Flags:
       --log-file-max-backups int   Maximum number of old log files to retain (default 5)
       --log-file-max-age int       Maximum retention days for old log files (default 30)
       --log-file-compress          Whether to compress old log files (default true)
+      --silence                    Suppress banner and colorful request output
+      --json                       Emit JSON lines for machine-readable pipelines
   -f, --forward-url stringSlice    Target URLs to forward requests to
       --forward-timeout int        Forward request timeout in seconds (default 30)
       --forward-max-retries int    Maximum retry attempts for forwarded requests (default 3)
@@ -242,7 +247,21 @@ Create a `config.yaml` file for persistent configuration:
 # Server Configuration
 server:
   port: 38888
-  path: "/"
+  path: "/reqtap"
+  max_body_bytes: 10485760  # Max request body size in bytes, 0 disables the limit
+  responses:
+    - name: "demo-json"
+      methods: ["POST"]
+      path_prefix: "/reqtap/demo"
+      status: 202
+      body: '{"status":"queued"}'
+      headers:
+        Content-Type: application/json
+    - name: "default-ok"
+      status: 200
+      body: "ok"
+      headers:
+        Content-Type: text/plain
 
 # Logging Configuration
 log:
@@ -261,8 +280,45 @@ forward:
     - "http://localhost:3000/webhook"
     - "https://api.example.com/ingest"
   timeout: 30           # Request timeout in seconds
+  response_header_timeout: 15  # Timeout for response headers (seconds)
+  tls_handshake_timeout: 10    # TLS handshake timeout (seconds)
+  expect_continue_timeout: 1   # Expect-Continue wait time (seconds)
   max_retries: 3        # Maximum retry attempts
   max_concurrent: 10    # Maximum concurrent forwards
+  max_idle_conns: 200            # Max idle connections
+  max_idle_conns_per_host: 50    # Max idle connections per host
+  max_conns_per_host: 100        # Max connections per host
+  idle_conn_timeout: 90          # Idle connection timeout (seconds)
+  tls_insecure_skip_verify: false # Skip TLS verification (test only)
+  path_strategy:
+    mode: "strip_prefix"        # append / strip_prefix / rewrite
+    strip_prefix: "/reqtap"     # Defaults to server.path when empty
+    # rules:
+    #   - name: "rewrite-service"
+    #     match: "/service"
+    #     replace: "/api"
+    #   - name: "regex-tenant"
+    #     match: "^/tenant/(.*)$"
+    #     replace: "/$1"
+    #     regex: true
+  # Header filtering. Blacklist is applied first; when whitelist is non-empty, only listed headers are forwarded
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
+
+> **Forwarding tips**
+> - Populate `urls` with one or more downstream endpoints; ReqTap fans out to each while honoring `timeout`, `max_retries`, and concurrency limits.
+> - With `path_strategy.mode=append` we simply stick the captured path onto the target URL. `strip_prefix` removes your listener prefix (defaults to `server.path`), and `rewrite` lets you define ordered prefix or regex replacements.
+> - In this example a request entering on `/reqtap/demo` will be trimmed to `/demo` before forwarding, removing environment-specific prefixes.
 
 # Web Console Configuration
 web:
@@ -283,7 +339,20 @@ web:
   export:
     enable: true
     formats: ["json", "csv", "txt"]
+
+# CLI output
+output:
+  mode: "console"   # console / json
+  silence: false     # true disables banner/printer output
 ```
+
+By default the request body size is capped at 10 MB. Adjust `server.max_body_bytes` or pass `--max-body-bytes` to change it; set the value to `0` to remove the limit entirely.
+
+Highlights:
+
+- `server.responses` lets you simulate downstream services with per-path/method status, body, and headers; remember that `path`/`path_prefix` must include the full `server.path` (default `/reqtap`).
+- `forward.path_strategy` normalizes forwarded paths (append, strip prefix, rewrite rules).
+- `output.mode`/`output.silence` map to the `--json`/`--silence` switches for machine-readable pipelines.
 
 **Usage with configuration file:**
 ```bash
@@ -298,6 +367,7 @@ All configuration options can be set via environment variables with the `REQTAP_
 # Server settings
 export REQTAP_SERVER_PORT=8080
 export REQTAP_SERVER_PATH="/reqtap"
+export REQTAP_SERVER_MAX_BODY_BYTES=2097152
 
 # Logging settings
 export REQTAP_LOG_LEVEL=debug
@@ -312,6 +382,10 @@ export REQTAP_FORWARD_TIMEOUT=30
 export REQTAP_WEB_ENABLE=true
 export REQTAP_WEB_PATH="/console"
 export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
+
+# Output settings
+export REQTAP_OUTPUT_MODE=json
+export REQTAP_OUTPUT_SILENCE=false
 
 # Start ReqTap
 ./reqtap
@@ -332,6 +406,12 @@ reqtap --port 8080 --web.enable --forward-url http://localhost:3000/webhook
 reqtap --log-level debug --log-file-enable --log-file-path ./audit.log
 ```
 
+#### CI / Logging Pipelines
+```bash
+# Emit newline-delimited JSON and suppress rich TTY output
+reqtap --json --silence --forward-url https://ci.internal/hooks
+```
+
 ### Configuration Priority
 
 Configuration is loaded in the following order (highest priority first):
@@ -350,7 +430,7 @@ ReqTap is split into several loosely coupled internal packages, each responsible
 - **HTTP service layer (`internal/server`)** – A Gorilla Mux router receives traffic, and the `Handler` returns 200 OK as soon as the body is read, while the heavy work continues inside background goroutines.
 - **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, dashboard persistence/WebSocket streaming, and multi-target forwarding.
 - **Forwarder (`internal/forwarder`)** – Maintains a bounded worker pool, applies context timeouts plus exponential backoff retries, mirrors headers that matter, and injects `X-ReqTap-*` tracing headers for every target.
-- **Web console (`internal/web`, `internal/static`)** – Includes a ring-buffer `RequestStore`, session-based auth manager, WebSocket hub, JSON/CSV/TXT export helpers, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
+- **Web console (`internal/web`, `internal/static`)** – Ring-buffer `RequestStore` with per-method index, session-based auth manager, WebSocket hub, JSON/CSV/TXT streaming exporters, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
 - **Observability** – Every component logs through the shared `logger.Logger` interface so troubleshooting looks identical in the terminal and in file logs.
 
 ```text

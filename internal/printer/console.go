@@ -2,12 +2,12 @@ package printer
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"unicode/utf8"
 
 	"github.com/dustin/go-humanize"
@@ -55,13 +55,11 @@ func NewColorScheme() *ColorScheme {
 	}
 }
 
-// Global request counter
-var requestCounter uint64
-
 // ConsolePrinter console printer
 type ConsolePrinter struct {
 	colorScheme *ColorScheme
 	logger      logger.Logger
+	out         io.Writer
 }
 
 // getTerminalWidth gets the current terminal width with fallback
@@ -140,32 +138,36 @@ func NewConsolePrinter(logger logger.Logger) *ConsolePrinter {
 	return &ConsolePrinter{
 		colorScheme: NewColorScheme(),
 		logger:      logger,
+		out:         os.Stdout,
 	}
 }
 
 // PrintRequest prints request information using raw HTTP message layout
 func (p *ConsolePrinter) PrintRequest(data *request.RequestData) error {
-	requestNum := atomic.AddUint64(&requestCounter, 1)
+	requestNum := nextRequestNumber()
 	timestamp := data.Timestamp.Format("2006-01-02T15:04:05-07:00")
 	width := p.getTerminalWidth()
 
-	p.printSummary(requestNum, timestamp, data, width)
-	p.printRequestLine(data)
-	p.printHeaders(data.Headers, width)
-	fmt.Println()
-	p.printBody(data)
-	fmt.Println()
+	var builder strings.Builder
+	p.printSummary(&builder, requestNum, timestamp, data, width)
+	p.printRequestLine(&builder, data)
+	p.printHeaders(&builder, data.Headers, width)
+	builder.WriteString("\n")
+	p.printBody(&builder, data)
+	builder.WriteString("\n\n")
 
-	return nil
+	_, err := fmt.Fprint(p.out, builder.String())
+	return err
 }
 
-func (p *ConsolePrinter) printSummary(requestNum uint64, timestamp string, data *request.RequestData, width int) {
+func (p *ConsolePrinter) printSummary(builder *strings.Builder, requestNum uint64, timestamp string, data *request.RequestData, width int) {
 	separator := p.buildSeparator(width)
-	p.colorScheme.Separator.Println(separator)
-	p.colorScheme.Separator.Printf("Request #%d  %s\n", requestNum, timestamp)
-	p.printMetadataLine(data)
-	p.colorScheme.Separator.Println(separator)
-	fmt.Println()
+	builder.WriteString(p.colorScheme.Separator.Sprint(separator))
+	builder.WriteString("\n")
+	builder.WriteString(p.colorScheme.Separator.Sprintf("Request #%d  %s\n", requestNum, timestamp))
+	p.printMetadataLine(builder, data)
+	builder.WriteString(p.colorScheme.Separator.Sprint(separator))
+	builder.WriteString("\n\n")
 }
 
 func (p *ConsolePrinter) buildSeparator(width int) string {
@@ -178,41 +180,41 @@ func (p *ConsolePrinter) buildSeparator(width int) string {
 	return strings.Repeat("-", width)
 }
 
-func (p *ConsolePrinter) printMetadataLine(data *request.RequestData) {
+func (p *ConsolePrinter) printMetadataLine(builder *strings.Builder, data *request.RequestData) {
 	first := true
 	addSep := func() {
 		if first {
 			first = false
 			return
 		}
-		fmt.Print(" | ")
+		builder.WriteString(" | ")
 	}
 
 	if data.RemoteAddr != "" {
 		addSep()
-		fmt.Print("Remote: ")
-		p.colorScheme.RemoteAddr.Print(data.RemoteAddr)
+		builder.WriteString("Remote: ")
+		builder.WriteString(p.colorScheme.RemoteAddr.Sprint(data.RemoteAddr))
 	}
 
 	if data.UserAgent != "" {
 		addSep()
-		fmt.Print("UA: ")
-		p.colorScheme.BodyContent.Print(data.UserAgent)
+		builder.WriteString("UA: ")
+		builder.WriteString(p.colorScheme.BodyContent.Sprint(data.UserAgent))
 	}
 
 	if data.ContentType != "" {
 		addSep()
-		fmt.Print("Content-Type: ")
-		p.colorScheme.HeaderValue.Print(data.ContentType)
+		builder.WriteString("Content-Type: ")
+		builder.WriteString(p.colorScheme.HeaderValue.Sprint(data.ContentType))
 	}
 
 	addSep()
-	fmt.Print("Size: ")
-	p.colorScheme.BodyContent.Print(humanize.Bytes(uint64(len(data.Body))))
-	fmt.Println()
+	builder.WriteString("Size: ")
+	builder.WriteString(p.colorScheme.BodyContent.Sprint(humanize.Bytes(uint64(len(data.Body)))))
+	builder.WriteString("\n")
 }
 
-func (p *ConsolePrinter) printRequestLine(data *request.RequestData) {
+func (p *ConsolePrinter) printRequestLine(builder *strings.Builder, data *request.RequestData) {
 	method := strings.ToUpper(data.Method)
 	proto := p.defaultProto(data.Proto)
 	path := data.Path
@@ -221,15 +223,17 @@ func (p *ConsolePrinter) printRequestLine(data *request.RequestData) {
 	}
 
 	methodColor := p.getMethodColor(method)
-	methodColor.Printf("%s ", method)
-	fmt.Print(path)
+	builder.WriteString(methodColor.Sprintf("%s ", method))
+	builder.WriteString(path)
 
 	if data.Query != "" {
-		fmt.Print("?")
-		p.colorScheme.Query.Print(data.Query)
+		builder.WriteString("?")
+		builder.WriteString(p.colorScheme.Query.Sprint(data.Query))
 	}
 
-	fmt.Printf(" %s\n", proto)
+	builder.WriteString(" ")
+	builder.WriteString(proto)
+	builder.WriteString("\n")
 }
 
 func (p *ConsolePrinter) defaultProto(proto string) string {
@@ -239,7 +243,7 @@ func (p *ConsolePrinter) defaultProto(proto string) string {
 	return "HTTP/1.1"
 }
 
-func (p *ConsolePrinter) printHeaders(headers http.Header, width int) {
+func (p *ConsolePrinter) printHeaders(builder *strings.Builder, headers http.Header, width int) {
 	if len(headers) == 0 {
 		return
 	}
@@ -264,11 +268,11 @@ func (p *ConsolePrinter) printHeaders(headers http.Header, width int) {
 			displayValue = "[REDACTED]"
 		}
 
-		p.printHeaderLine(key, displayValue, width)
+		p.printHeaderLine(builder, key, displayValue, width)
 	}
 }
 
-func (p *ConsolePrinter) printHeaderLine(key, value string, width int) {
+func (p *ConsolePrinter) printHeaderLine(builder *strings.Builder, key, value string, width int) {
 	if width <= 0 {
 		width = 80
 	}
@@ -284,43 +288,45 @@ func (p *ConsolePrinter) printHeaderLine(key, value string, width int) {
 		wrappedValues = []string{""}
 	}
 
-	p.colorScheme.HeaderKey.Print(prefix)
-	p.colorScheme.HeaderValue.Println(wrappedValues[0])
+	builder.WriteString(p.colorScheme.HeaderKey.Sprint(prefix))
+	builder.WriteString(p.colorScheme.HeaderValue.Sprintln(wrappedValues[0]))
 
 	indent := strings.Repeat(" ", utf8.RuneCountInString(prefix))
 	for _, line := range wrappedValues[1:] {
-		fmt.Print(indent)
-		p.colorScheme.HeaderValue.Println(line)
+		builder.WriteString(indent)
+		builder.WriteString(p.colorScheme.HeaderValue.Sprintln(line))
 	}
 }
 
-func (p *ConsolePrinter) printBody(data *request.RequestData) {
+func (p *ConsolePrinter) printBody(builder *strings.Builder, data *request.RequestData) {
 	bodySize := humanize.Bytes(uint64(len(data.Body)))
 
 	if len(data.Body) == 0 {
-		p.colorScheme.BodyContent.Printf("[Empty Body - %s]\n", bodySize)
+		builder.WriteString(p.colorScheme.BodyContent.Sprintf("[Empty Body - %s]", bodySize))
+		builder.WriteString("\n")
 		return
 	}
 
 	if data.IsBinary {
-		p.colorScheme.BinaryNotice.Printf("[Binary Body: %s, %s. Content skipped.]\n", data.ContentType, bodySize)
+		builder.WriteString(p.colorScheme.BinaryNotice.Sprintf("[Binary Body: %s, %s. Content skipped.]", data.ContentType, bodySize))
+		builder.WriteString("\n")
 		return
 	}
 
-	p.printBodyContent(data.Body)
+	p.printBodyContent(builder, data.Body)
 }
 
-func (p *ConsolePrinter) printBodyContent(body []byte) {
+func (p *ConsolePrinter) printBodyContent(builder *strings.Builder, body []byte) {
 	content := string(body)
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
 		trimmed := strings.TrimRight(line, "\r")
 		if trimmed == "" {
-			fmt.Println()
+			builder.WriteString("\n")
 			continue
 		}
-		p.colorScheme.BodyContent.Println(trimmed)
+		builder.WriteString(p.colorScheme.BodyContent.Sprintln(trimmed))
 	}
 }
 

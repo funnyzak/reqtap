@@ -1,44 +1,121 @@
 package web
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
 )
 
+// RequestIterator 用于按需遍历请求
+type RequestIterator func(func(*StoredRequest) bool)
+
 // ExportRequests serializes stored requests into the desired format.
 func ExportRequests(data []*StoredRequest, format string) ([]byte, string, string, error) {
+	iter := func(yield func(*StoredRequest) bool) {
+		for i := 0; i < len(data); i++ {
+			if !yield(data[i]) {
+				return
+			}
+		}
+	}
+	buf := &bytes.Buffer{}
+	contentType, ext, err := StreamExport(buf, iter, format)
+	return buf.Bytes(), contentType, ext, err
+}
+
+// StreamExport 以流式方式导出，避免大数据加载内存
+func StreamExport(w io.Writer, iter RequestIterator, format string) (string, string, error) {
+	contentType, ext, err := describeFormat(format)
+	if err != nil {
+		return "", "", err
+	}
+
+	var streamErr error
 	switch strings.ToLower(format) {
 	case "json":
-		buf, err := json.MarshalIndent(data, "", "  ")
-		return buf, "application/json", "json", err
+		streamErr = streamJSON(w, iter)
 	case "csv":
-		return exportCSV(data)
+		streamErr = streamCSV(w, iter)
 	case "text", "txt":
-		return exportText(data)
+		streamErr = streamText(w, iter)
+	}
+	return contentType, ext, streamErr
+}
+
+func describeFormat(format string) (string, string, error) {
+	switch strings.ToLower(format) {
+	case "json":
+		return "application/json", "json", nil
+	case "csv":
+		return "text/csv", "csv", nil
+	case "text", "txt":
+		return "text/plain; charset=utf-8", "txt", nil
 	default:
-		return nil, "", "", fmt.Errorf("unsupported export format: %s", format)
+		return "", "", fmt.Errorf("unsupported export format: %s", format)
 	}
 }
 
-func exportCSV(data []*StoredRequest) ([]byte, string, string, error) {
-	buf := &bytes.Buffer{}
-	writer := csv.NewWriter(buf)
+func streamJSON(w io.Writer, iter RequestIterator) error {
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
 
+	if _, err := bw.WriteString("["); err != nil {
+		return err
+	}
+	first := true
+	var marshalErr error
+	iter(func(item *StoredRequest) bool {
+		if marshalErr != nil {
+			return false
+		}
+		b, err := json.Marshal(item)
+		if err != nil {
+			marshalErr = err
+			return false
+		}
+		if !first {
+			if _, marshalErr = bw.WriteString(","); marshalErr != nil {
+				return false
+			}
+		}
+		first = false
+		if _, marshalErr = bw.Write(b); marshalErr != nil {
+			return false
+		}
+		return true
+	})
+	if marshalErr != nil {
+		return marshalErr
+	}
+	_, err := bw.WriteString("]")
+	return err
+}
+
+func streamCSV(w io.Writer, iter RequestIterator) error {
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+
+	csvWriter := csv.NewWriter(bw)
 	headers := []string{
 		"id", "timestamp", "method", "path", "query", "remote_addr",
 		"user_agent", "content_type", "content_length", "is_binary", "headers", "body_base64",
 	}
-	if err := writer.Write(headers); err != nil {
-		return nil, "", "", err
+	if err := csvWriter.Write(headers); err != nil {
+		return err
 	}
 
-	for _, item := range data {
+	var writeErr error
+	iter(func(item *StoredRequest) bool {
+		if writeErr != nil {
+			return false
+		}
 		headersJSON, _ := json.Marshal(item.Headers)
 		line := []string{
 			item.ID,
@@ -54,29 +131,36 @@ func exportCSV(data []*StoredRequest) ([]byte, string, string, error) {
 			string(headersJSON),
 			base64.StdEncoding.EncodeToString(item.Body),
 		}
-		if err := writer.Write(line); err != nil {
-			return nil, "", "", err
-		}
-	}
+		writeErr = csvWriter.Write(line)
+		return writeErr == nil
+	})
 
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return nil, "", "", err
+	csvWriter.Flush()
+	if writeErr != nil {
+		return writeErr
 	}
-
-	return buf.Bytes(), "text/csv", "csv", nil
+	return csvWriter.Error()
 }
 
-func exportText(data []*StoredRequest) ([]byte, string, string, error) {
-	var builder strings.Builder
-	for i, item := range data {
-		if i > 0 {
-			builder.WriteString("\n\n")
+func streamText(w io.Writer, iter RequestIterator) error {
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+	first := true
+	var writeErr error
+	iter(func(item *StoredRequest) bool {
+		if writeErr != nil {
+			return false
 		}
-		builder.WriteString(renderPlainRequest(item))
-	}
-
-	return []byte(builder.String()), "text/plain; charset=utf-8", "txt", nil
+		if !first {
+			if _, writeErr = bw.WriteString("\n\n"); writeErr != nil {
+				return false
+			}
+		}
+		first = false
+		_, writeErr = bw.WriteString(renderPlainRequest(item))
+		return writeErr == nil
+	})
+	return writeErr
 }
 
 func renderPlainRequest(item *StoredRequest) string {

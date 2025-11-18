@@ -12,6 +12,24 @@ server:
   # "/reqtap"  receives only requests starting with /reqtap
   path: "/reqtap/"
 
+  # Maximum allowed body size per request in bytes (0 disables the limit)
+  max_body_bytes: 10485760
+
+  # Immediate response rules applied before forwarding
+  responses:
+    - name: "default-ok"
+      status: 200
+      body: "ok"
+      headers:
+        Content-Type: text/plain
+    - name: "stripe-simulated"
+      methods: ["POST"]
+      path_prefix: "/stripe"
+      status: 202
+      body: '{"status":"queued"}'
+      headers:
+        Content-Type: application/json
+
 # Logging configuration
 log:
   # Log level: trace, debug, info, warn, error, fatal, panic
@@ -50,11 +68,64 @@ forward:
   # Timeout for forwarding requests (seconds)
   timeout: 30
 
+  # Response header timeout (seconds) for slow upstreams
+  response_header_timeout: 15
+
+  # TLS handshake timeout (seconds)
+  tls_handshake_timeout: 10
+
+  # Expect-Continue timeout (seconds)
+  expect_continue_timeout: 1
+
   # Number of retries on failure
   max_retries: 3
 
   # Maximum concurrent forwarding requests
   max_concurrent: 10
+
+  # Max idle connections (overall and per host)
+  max_idle_conns: 200
+  max_idle_conns_per_host: 50
+
+  # Max connections per host
+  max_conns_per_host: 100
+
+  # Idle connection timeout (seconds)
+  idle_conn_timeout: 90
+
+  # Skip TLS verification (not recommended for production)
+  tls_insecure_skip_verify: false
+
+  # Path strategy controls how request paths are forwarded
+  path_strategy:
+    # Options: append, strip_prefix, rewrite
+    mode: "strip_prefix"
+    # Optional overriding prefix to remove; defaults to server.path when empty
+    strip_prefix: "/reqtap"
+    # Rewrite rules are evaluated in order when mode == rewrite
+    # rules:
+    #   - name: "drop-tenant"
+    #     match: "/tenant"
+    #     replace: "/api"
+    #   - name: "regex-swap"
+    #     match: "^/org/(.*)$"
+    #     replace: "/$1"
+    #     regex: true
+
+  # Header filtering
+  # Blacklist is applied first; whitelist (if non-empty) restricts forwarded headers to the listed names
+  header_blacklist:
+    - "host"
+    - "connection"
+    - "keep-alive"
+    - "proxy-authenticate"
+    - "proxy-authorization"
+    - "te"
+    - "trailers"
+    - "transfer-encoding"
+    - "upgrade"
+    - "content-length"
+  header_whitelist: []
 
 # Web console configuration
 web:
@@ -78,10 +149,10 @@ web:
     # User list (replace default credentials in production)
     users:
       - username: "admin"
-        password: "ihevsxzlmxzm"
+        password: "admin123"
         role: "admin"
       - username: "user"
-        password: "imuvnspbvwwi"
+        password: "user123"
         role: "viewer"
 
   export:
@@ -89,3 +160,10 @@ web:
     enable: true
     # Allowed export formats
     formats: ["json", "csv", "txt"]
+
+# CLI / output configuration
+output:
+  # console or json
+  mode: "console"
+  # When true, disables banner and request printing (logs still emit)
+  silence: false

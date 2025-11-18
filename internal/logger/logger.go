@@ -3,6 +3,7 @@ package logger
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/rs/zerolog"
@@ -104,7 +105,7 @@ func (z *zerologAdapter) Fatal(msg string, fields ...interface{}) {
 }
 
 // NewLogger creates new logger instance
-func NewLogger(cfg *config.LogConfig) Logger {
+func NewLogger(cfg *config.LogConfig, outputMode string) Logger {
 	// Set log level
 	logLevel, err := zerolog.ParseLevel(cfg.Level)
 	if err != nil {
@@ -112,13 +113,17 @@ func NewLogger(cfg *config.LogConfig) Logger {
 	}
 
 	var writers []io.Writer
+	structured := strings.ToLower(outputMode) == "json"
 
-	// Create console output
-	consoleWriter := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: "2006-01-02 15:04:05",
+	if structured {
+		writers = append(writers, os.Stdout)
+	} else {
+		consoleWriter := zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: "2006-01-02 15:04:05",
+		}
+		writers = append(writers, consoleWriter)
 	}
-	writers = append(writers, consoleWriter)
 
 	// If file logging is enabled, add file output
 	if cfg.FileLogging.Enable {
