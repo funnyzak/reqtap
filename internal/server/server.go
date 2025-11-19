@@ -41,7 +41,7 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 	// Create printer based on output configuration
 	var reqPrinter printer.Printer
 	if !cfg.Output.Silence {
-		reqPrinter = printer.New(strings.ToLower(cfg.Output.Mode), log)
+		reqPrinter = printer.New(strings.ToLower(cfg.Output.Mode), log, &cfg.Output)
 	}
 
 	// Create forwarder

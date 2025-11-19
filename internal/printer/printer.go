@@ -3,6 +3,7 @@ package printer
 import (
 	"sync/atomic"
 
+	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
@@ -19,11 +20,14 @@ func nextRequestNumber() uint64 {
 }
 
 // New 创建指定模式的 Printer
-func New(mode string, log logger.Logger) Printer {
+func New(mode string, log logger.Logger, cfg *config.OutputConfig) Printer {
+	if cfg == nil {
+		cfg = &config.OutputConfig{}
+	}
 	switch mode {
 	case "json":
 		return NewJSONPrinter(log)
 	default:
-		return NewConsolePrinter(log)
+		return NewConsolePrinter(log, &cfg.BodyView)
 	}
 }

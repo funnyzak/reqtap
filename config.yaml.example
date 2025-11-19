@@ -167,3 +167,33 @@ output:
   mode: "console"
   # When true, disables banner and request printing (logs still emit)
   silence: false
+  # Enable multi-format body view (pretty JSON, form table, XML/HTML formatting)
+  body_view:
+    enable: false
+    # Maximum bytes to print before truncation warning (0 = unlimited)
+    max_preview_bytes: 32768
+    # Force full body output even if larger than preview limit
+    full_body: false
+    json:
+      enable: true
+      pretty: true
+      # Skip json.Indent when raw body exceeds this size (bytes)
+      max_indent_bytes: 131072
+    form:
+      enable: true
+    xml:
+      enable: true
+      pretty: true
+      strip_control: true
+    html:
+      enable: true
+      pretty: false
+      strip_control: true
+    binary:
+      # Hex preview toggles
+      hex_preview_enable: false
+      hex_preview_bytes: 256
+      # Persist binary body to disk for inspection
+      save_to_file: false
+      save_directory: ""
+      # CLI 覆盖示例：--body-hex-preview --body-hex-preview-bytes 512 --body-save-binary --body-save-directory /tmp/reqtap

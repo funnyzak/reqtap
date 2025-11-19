@@ -121,8 +121,55 @@ type WebExportConfig struct {
 
 // OutputConfig controls CLI output style
 type OutputConfig struct {
-	Mode    string `yaml:"mode" mapstructure:"mode"`
-	Silence bool   `yaml:"silence" mapstructure:"silence"`
+	Mode     string         `yaml:"mode" mapstructure:"mode"`
+	Silence  bool           `yaml:"silence" mapstructure:"silence"`
+	BodyView BodyViewConfig `yaml:"body_view" mapstructure:"body_view"`
+}
+
+// BodyViewConfig 控制正文格式化与分段
+type BodyViewConfig struct {
+	Enable          bool             `yaml:"enable" mapstructure:"enable"`
+	MaxPreviewBytes int              `yaml:"max_preview_bytes" mapstructure:"max_preview_bytes"`
+	FullBody        bool             `yaml:"full_body" mapstructure:"full_body"`
+	Json            JSONViewConfig   `yaml:"json" mapstructure:"json"`
+	Form            FormViewConfig   `yaml:"form" mapstructure:"form"`
+	XML             XMLViewConfig    `yaml:"xml" mapstructure:"xml"`
+	HTML            HTMLViewConfig   `yaml:"html" mapstructure:"html"`
+	Binary          BinaryViewConfig `yaml:"binary" mapstructure:"binary"`
+}
+
+// JSONViewConfig JSON 展示参数
+type JSONViewConfig struct {
+	Enable         bool `yaml:"enable" mapstructure:"enable"`
+	Pretty         bool `yaml:"pretty" mapstructure:"pretty"`
+	MaxIndentBytes int  `yaml:"max_indent_bytes" mapstructure:"max_indent_bytes"`
+}
+
+// FormViewConfig 表单展示参数
+type FormViewConfig struct {
+	Enable bool `yaml:"enable" mapstructure:"enable"`
+}
+
+// XMLViewConfig XML 展示参数
+type XMLViewConfig struct {
+	Enable       bool `yaml:"enable" mapstructure:"enable"`
+	Pretty       bool `yaml:"pretty" mapstructure:"pretty"`
+	StripControl bool `yaml:"strip_control" mapstructure:"strip_control"`
+}
+
+// HTMLViewConfig HTML 展示参数
+type HTMLViewConfig struct {
+	Enable       bool `yaml:"enable" mapstructure:"enable"`
+	Pretty       bool `yaml:"pretty" mapstructure:"pretty"`
+	StripControl bool `yaml:"strip_control" mapstructure:"strip_control"`
+}
+
+// BinaryViewConfig 二进制展示参数
+type BinaryViewConfig struct {
+	HexPreviewEnable bool   `yaml:"hex_preview_enable" mapstructure:"hex_preview_enable"`
+	HexPreviewBytes  int    `yaml:"hex_preview_bytes" mapstructure:"hex_preview_bytes"`
+	SaveToFile       bool   `yaml:"save_to_file" mapstructure:"save_to_file"`
+	SaveDirectory    string `yaml:"save_directory" mapstructure:"save_directory"`
 }
 
 // LoadConfig load configuration
@@ -231,6 +278,31 @@ func applyDefaults(cfg *Config, v *viper.Viper) {
 		cfg.Output.Mode = v.GetString("output.mode")
 	}
 	cfg.Output.Silence = v.GetBool("output.silence")
+	cfg.Output.BodyView.Enable = v.GetBool("output.body_view.enable")
+	if cfg.Output.BodyView.MaxPreviewBytes == 0 {
+		cfg.Output.BodyView.MaxPreviewBytes = v.GetInt("output.body_view.max_preview_bytes")
+	}
+	cfg.Output.BodyView.FullBody = v.GetBool("output.body_view.full_body")
+	cfg.Output.BodyView.Json.Enable = v.GetBool("output.body_view.json.enable")
+	cfg.Output.BodyView.Json.Pretty = v.GetBool("output.body_view.json.pretty")
+	if cfg.Output.BodyView.Json.MaxIndentBytes == 0 {
+		cfg.Output.BodyView.Json.MaxIndentBytes = v.GetInt("output.body_view.json.max_indent_bytes")
+	}
+	cfg.Output.BodyView.Form.Enable = v.GetBool("output.body_view.form.enable")
+	cfg.Output.BodyView.XML.Enable = v.GetBool("output.body_view.xml.enable")
+	cfg.Output.BodyView.XML.Pretty = v.GetBool("output.body_view.xml.pretty")
+	cfg.Output.BodyView.XML.StripControl = v.GetBool("output.body_view.xml.strip_control")
+	cfg.Output.BodyView.HTML.Enable = v.GetBool("output.body_view.html.enable")
+	cfg.Output.BodyView.HTML.Pretty = v.GetBool("output.body_view.html.pretty")
+	cfg.Output.BodyView.HTML.StripControl = v.GetBool("output.body_view.html.strip_control")
+	cfg.Output.BodyView.Binary.HexPreviewEnable = v.GetBool("output.body_view.binary.hex_preview_enable")
+	if cfg.Output.BodyView.Binary.HexPreviewBytes == 0 {
+		cfg.Output.BodyView.Binary.HexPreviewBytes = v.GetInt("output.body_view.binary.hex_preview_bytes")
+	}
+	cfg.Output.BodyView.Binary.SaveToFile = v.GetBool("output.body_view.binary.save_to_file")
+	if cfg.Output.BodyView.Binary.SaveDirectory == "" {
+		cfg.Output.BodyView.Binary.SaveDirectory = v.GetString("output.body_view.binary.save_directory")
+	}
 
 	// Forward configuration - command line handled in main.go for URLs
 	// These don't have command line flags, so only apply defaults if zero
@@ -396,6 +468,23 @@ func setDefaults(v *viper.Viper) {
 	// Output defaults
 	v.SetDefault("output.mode", "console")
 	v.SetDefault("output.silence", false)
+	v.SetDefault("output.body_view.enable", false)
+	v.SetDefault("output.body_view.max_preview_bytes", int(32*1024))
+	v.SetDefault("output.body_view.full_body", false)
+	v.SetDefault("output.body_view.json.enable", true)
+	v.SetDefault("output.body_view.json.pretty", true)
+	v.SetDefault("output.body_view.json.max_indent_bytes", int(128*1024))
+	v.SetDefault("output.body_view.form.enable", true)
+	v.SetDefault("output.body_view.xml.enable", true)
+	v.SetDefault("output.body_view.xml.pretty", true)
+	v.SetDefault("output.body_view.xml.strip_control", true)
+	v.SetDefault("output.body_view.html.enable", true)
+	v.SetDefault("output.body_view.html.pretty", false)
+	v.SetDefault("output.body_view.html.strip_control", true)
+	v.SetDefault("output.body_view.binary.hex_preview_enable", false)
+	v.SetDefault("output.body_view.binary.hex_preview_bytes", 256)
+	v.SetDefault("output.body_view.binary.save_to_file", false)
+	v.SetDefault("output.body_view.binary.save_directory", "")
 }
 
 // validate configuration
@@ -439,6 +528,9 @@ func (c *Config) Validate() error {
 		}
 	default:
 		return fmt.Errorf("output mode must be 'console' or 'json'")
+	}
+	if err := validateBodyViewConfig(&c.Output.BodyView); err != nil {
+		return err
 	}
 
 	// Validate log level
@@ -562,6 +654,22 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func validateBodyViewConfig(cfg *BodyViewConfig) error {
+	if cfg.MaxPreviewBytes < 0 {
+		return fmt.Errorf("output.body_view.max_preview_bytes cannot be negative")
+	}
+	if cfg.Json.MaxIndentBytes < 0 {
+		return fmt.Errorf("output.body_view.json.max_indent_bytes cannot be negative")
+	}
+	if cfg.Binary.HexPreviewBytes < 0 {
+		return fmt.Errorf("output.body_view.binary.hex_preview_bytes cannot be negative")
+	}
+	if cfg.Binary.SaveToFile && strings.TrimSpace(cfg.Binary.SaveDirectory) == "" {
+		return fmt.Errorf("output.body_view.binary.save_directory cannot be empty when save_to_file is enabled")
+	}
 	return nil
 }
 

@@ -231,6 +231,13 @@ go build -o reqtap ./cmd/reqtap
       --log-file-compress          是否压缩旧日志文件 (默认 true)
       --silence                    静默模式，不打印 banner 和请求详情
       --json                       输出 JSON 日志，便于 CI / 日志系统
+      --body-view                  启用多格式正文展示（JSON 缩进、表单表格等）
+      --body-preview-bytes int     控制台正文预览的最大字节数（超过即截断）
+      --full-body                  无视预览限制，始终输出完整请求体
+      --body-hex-preview           为二进制正文开启十六进制预览
+      --body-hex-preview-bytes int 十六进制预览字节上限
+      --body-save-binary           将二进制正文落盘保存
+      --body-save-directory string 自定义二进制落盘目录（需配合 --body-save-binary）
   -f, --forward-url stringSlice    要转发请求的目标 URL
       --forward-timeout int        转发请求超时时间（秒）(默认 30)
       --forward-max-retries int    转发请求的最大重试次数 (默认 3)
@@ -345,6 +352,29 @@ web:
 output:
   mode: "console"   # console / json
   silence: false     # true 时不打印彩色输出
+  body_view:
+    enable: false
+    max_preview_bytes: 32768
+    full_body: false
+    json:
+      enable: true
+      pretty: true
+      max_indent_bytes: 131072
+    form:
+      enable: true
+    xml:
+      enable: true
+      pretty: true
+      strip_control: true
+    html:
+      enable: true
+      pretty: false
+      strip_control: true
+    binary:
+      hex_preview_enable: false
+      hex_preview_bytes: 256
+      save_to_file: false
+      save_directory: ""
 ```
 
 默认情况下会限制请求体为 10 MB，可通过 `server.max_body_bytes` 或 `--max-body-bytes` 调整，设置为 `0` 表示不做限制。
@@ -354,6 +384,7 @@ output:
 - `server.responses` 以声明式方式模拟不同的响应，支持 `path`、`path_prefix`、`methods` 组合匹配，第一条匹配即生效；`path`/`path_prefix` 必须写入包含 `server.path`（默认 `/reqtap`）的完整路径。
 - `forward.path_strategy` 允许在转发阶段去除监听前缀或执行自定义重写，避免多环境回调 URL 不一致。
 - `output.mode` 与 `output.silence` 分别控制彩色输出/JSON 行与静默模式，也可通过 `--json`、`--silence` 临时覆盖。
+- `output.body_view` 负责多格式正文展示：开启后可自动对 JSON 缩进（含最大缩进阈值）、表单体转表格、XML/HTML 美化或剥离控制字符，并为二进制体提供十六进制预览与落盘；CLI 可用 `--body-view`、`--body-preview-bytes`、`--full-body`、`--body-hex-preview`、`--body-hex-preview-bytes`、`--body-save-binary`、`--body-save-directory` 即时覆盖相关开关及限额。
 
 **使用配置文件：**
 ```bash
