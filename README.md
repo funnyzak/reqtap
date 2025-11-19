@@ -187,6 +187,7 @@ go build -o reqtap ./cmd/reqtap
 - 根据 HTTP 方法、路径、Query、头部或来源 IP 进行筛选/搜索
 - 在模态窗口中查看完整的请求详情（Headers + Body）
 - 一键导出当前视图为 JSON、CSV 或纯文本
+- 在控制台右上角切换暗色/亮色主题，偏好会自动保存在浏览器中
 - 管理员可对任一请求直接复制/下载 Request 报文、复制/下载固定 Response 报文，以及复制可直接重放的 cURL 命令
 
 控制台使用的 API 位于可配置的 `web.admin_path`（默认 `/api`）下：

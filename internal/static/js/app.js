@@ -7,6 +7,8 @@ const EXPORT_ENABLED = CONFIG.exportEnabled !== false;
 const WEB_BASE = CONFIG.webBase || '/web';
 const ROLE_ADMIN = CONFIG.roleAdmin || 'admin';
 const ROLE_VIEWER = CONFIG.roleViewer || 'viewer';
+const THEME_STORAGE_KEY = 'reqtap-theme';
+const DEFAULT_THEME = 'dark';
 
 const state = {
   requests: [],
@@ -17,6 +19,7 @@ const state = {
   userRole: '',
   activeRequest: null,
   activeRequestBody: '',
+  theme: DEFAULT_THEME,
 };
 
 let ws;
@@ -48,7 +51,61 @@ const els = {
   actionStatus: document.getElementById('detail-action-status'),
   adminAreas: document.querySelectorAll('[data-admin-only="true"]'),
   adminButtons: document.querySelectorAll('[data-admin-action="true"]'),
+  themeToggle: document.getElementById('theme-toggle'),
+  themeToggleLabel: document.getElementById('theme-toggle-label'),
+  themeToggleIcon: document.getElementById('theme-toggle-icon'),
 };
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to read theme preference', error);
+    return null;
+  }
+}
+
+function persistTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn('Unable to persist theme preference', error);
+  }
+}
+
+function updateThemeToggleUI(theme) {
+  if (!els.themeToggle) return;
+  const isLight = theme === 'light';
+  const nextThemeLabel = isLight ? 'Dark' : 'Light';
+  els.themeToggle.setAttribute('aria-pressed', String(isLight));
+  els.themeToggle.setAttribute('title', `Switch to ${nextThemeLabel} mode`);
+  if (els.themeToggleLabel) {
+    els.themeToggleLabel.textContent = nextThemeLabel;
+  }
+  if (els.themeToggleIcon) {
+    const icon = isLight ? 'fa-moon' : 'fa-sun';
+    els.themeToggleIcon.className = `fa-solid ${icon}`;
+  }
+}
+
+function applyTheme(theme) {
+  const resolvedTheme = theme === 'light' ? 'light' : 'dark';
+  state.theme = resolvedTheme;
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+  updateThemeToggleUI(resolvedTheme);
+}
+
+function initTheme() {
+  const stored = getStoredTheme();
+  applyTheme(stored || DEFAULT_THEME);
+  if (els.themeToggle) {
+    els.themeToggle.addEventListener('click', () => {
+      const nextTheme = state.theme === 'light' ? 'dark' : 'light';
+      applyTheme(nextTheme);
+      persistTheme(nextTheme);
+    });
+  }
+}
 
 async function apiFetch(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
@@ -710,4 +767,5 @@ async function bootstrap() {
   initWebsocket();
 }
 
+initTheme();
 bootstrap();

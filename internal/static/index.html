@@ -1,10 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ReqTap · Live Request Monitor</title>
+  <script>
+    (function () {
+      try {
+        const saved = localStorage.getItem('reqtap-theme');
+        if (saved) {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (error) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -12,7 +24,7 @@
   <!--REQTAP_CONFIG-->
 </head>
 
-<body class="min-h-screen text-slate-100 font-inter antialiased">
+<body class="min-h-screen font-inter antialiased">
   <div class="container mx-auto px-4 py-6 lg:py-8 mt-2 page-shell">
     <header class="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
@@ -24,14 +36,18 @@
       </div>
       <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
         <div class="user-chip">
-          <span class="text-slate-400">User</span>
-          <span id="current-user" class="font-semibold text-white">-</span>
+          <span class="text-muted">User</span>
+          <span id="current-user" class="font-semibold">-</span>
           <span id="current-role" class="text-xs uppercase tracking-wide text-emerald-300">-</span>
         </div>
         <span id="ws-status" class="status-pill inline-flex items-center gap-2">
           <span class="indicator bg-yellow-400"></span>
           <span class="status-label">Connecting</span>
         </span>
+        <button id="theme-toggle" type="button" class="action-btn theme-toggle" aria-pressed="false">
+          <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
+          <span id="theme-toggle-label">Light</span>
+        </button>
         <button id="logout-btn" class="action-btn action-btn--danger text-sm">
           <i class="fa-solid fa-power-off"></i>
           Logout
@@ -72,7 +88,7 @@
         <div class="flex-1">
           <label class="control-label">Search keyword</label>
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-muted">
               <i class="fa-solid fa-magnifying-glass"></i>
             </span>
             <input id="search-input" type="text" placeholder="URL, query, header, client IP..."
@@ -123,29 +139,29 @@
 
     <section class="repo-banner text-sm">
       <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Repo</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-muted">Repo</p>
         <a href="https://github.com/funnyzak/reqtap" target="_blank" rel="noreferrer noopener">
           funnyzak/reqtap
         </a>
       </div>
       <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Author</p>
-        <span class="text-slate-100 font-semibold">funnyzak</span>
+        <p class="text-xs uppercase tracking-[0.2em] text-muted">Author</p>
+        <span class="font-semibold">funnyzak</span>
       </div>
     </section>
   </div>
 
   <div id="detail-modal"
-    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4 z-50">
-    <div class="detail-modal-panel w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl relative">
+    class="fixed inset-0 backdrop-blur-sm flex items-center justify-center hidden p-4 z-50">
+    <div class="detail-modal-panel w-full max-w-4xl rounded-2xl border shadow-2xl relative">
       <button id="detail-close"
-      class="sticky top-1 float-right mr-4 mb-4 z-10 text-slate-400 hover:text-white transition text-xl bg-slate-900/80 backdrop-blur-sm rounded-full p-2 hover:bg-slate-800/80">
+      class="sticky top-1 float-right mr-4 mb-4 z-10 detail-close-btn text-xl rounded-full p-2 backdrop-blur-sm">
         <i class="fa-solid fa-xmark"></i>
       </button>
       <div class="p-6 space-y-6 text-sm">
         <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Overview</p>
-          <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-4 space-y-2" id="detail-meta"></div>
+          <p class="text-xs uppercase tracking-wide text-muted mb-1">Overview</p>
+          <div class="detail-meta" id="detail-meta"></div>
         </div>
         <div class="detail-action-wrapper" data-admin-only="true">
           <div class="detail-action-bar">
@@ -172,11 +188,11 @@
           <p id="detail-action-status" class="detail-action-status hidden"></p>
         </div>
         <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Headers</p>
+          <p class="text-xs uppercase tracking-wide text-muted mb-1">Headers</p>
           <pre id="detail-headers" class="code-block"></pre>
         </div>
         <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Body</p>
+          <p class="text-xs uppercase tracking-wide text-muted mb-1">Body</p>
           <pre id="detail-body" class="code-block"></pre>
         </div>
       </div>
@@ -184,13 +200,13 @@
   </div>
 
   <template id="row-template">
-    <tr class="hover:bg-slate-900/60 transition cursor-pointer">
-      <td class="px-4 py-3 font-mono text-xs text-slate-400"></td>
+    <tr class="transition cursor-pointer">
+      <td class="px-4 py-3 font-mono text-xs text-muted"></td>
       <td class="px-4 py-3 font-semibold"></td>
       <td class="px-4 py-3 truncate max-w-[320px]"></td>
-      <td class="px-4 py-3 text-slate-300"></td>
-      <td class="px-4 py-3 text-slate-500 truncate max-w-[200px]"></td>
-      <td class="px-4 py-3 text-right font-mono text-xs text-slate-400"></td>
+      <td class="px-4 py-3 text-default-soft"></td>
+      <td class="px-4 py-3 text-muted truncate max-w-[200px]"></td>
+      <td class="px-4 py-3 text-right font-mono text-xs text-muted"></td>
     </tr>
   </template>
 
