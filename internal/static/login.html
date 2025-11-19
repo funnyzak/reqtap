@@ -1,10 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ReqTap · Login</title>
+  <script>
+    (function () {
+      try {
+        const saved = localStorage.getItem('reqtap-theme');
+        if (saved) {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (error) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="./css/app.css" />
@@ -12,35 +24,41 @@
   <!--REQTAP_CONFIG-->
 </head>
 
-<body class="min-h-screen flex items-center justify-center p-6 text-slate-100 font-inter antialiased auth-page">
+<body class="min-h-screen flex items-center justify-center p-6 font-inter antialiased auth-page">
   <div class="w-full max-w-md p-8 auth-card">
+    <div class="flex justify-end mb-4">
+      <button id="theme-toggle" type="button" class="action-btn theme-toggle text-sm" aria-pressed="false">
+        <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
+        <span id="theme-toggle-label">Light</span>
+      </button>
+    </div>
     <div class="text-center mb-8">
       <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300 mb-3">
         <i class="fa-solid fa-shield-halved text-2xl"></i>
       </div>
       <h1 class="text-2xl font-semibold">ReqTap Console</h1>
-      <p class="text-slate-400 text-sm mt-1">Sign in to orchestrate your live request monitor.</p>
+      <p class="text-muted text-sm mt-1">Sign in to orchestrate your live request monitor.</p>
     </div>
 
     <form id="login-form" class="space-y-5">
       <div>
-        <label class="text-sm text-slate-400 mb-1 block">Username</label>
+        <label class="text-sm text-muted mb-1 block">Username</label>
         <input type="text" name="username" required autocomplete="username" placeholder="admin"
           class="control-input" />
       </div>
       <div>
-        <label class="text-sm text-slate-400 mb-1 block">Password</label>
+        <label class="text-sm text-muted mb-1 block">Password</label>
         <input name="password" required type="password" autocomplete="current-password" placeholder="••••••••"
           class="control-input" />
       </div>
       <button type="submit"
-        class="w-full rounded-xl bg-emerald-500/80 hover:bg-emerald-400 text-slate-900 font-semibold py-2 transition flex items-center justify-center gap-2">
+        class="w-full rounded-xl bg-emerald-500/80 hover:bg-emerald-400 font-semibold py-2 transition flex items-center justify-center gap-2 text-contrast">
         <i class="fa-solid fa-right-to-bracket"></i>
         Login
       </button>
     </form>
 
-    <p id="login-message" class="text-center text-sm text-red-300 mt-4 h-6"></p>
+    <p id="login-message" class="text-center text-sm text-rose mt-4 h-6"></p>
 
     <div class="auth-footer">
       <p>

@@ -7,6 +7,8 @@ const EXPORT_ENABLED = CONFIG.exportEnabled !== false;
 const WEB_BASE = CONFIG.webBase || '/web';
 const ROLE_ADMIN = CONFIG.roleAdmin || 'admin';
 const ROLE_VIEWER = CONFIG.roleViewer || 'viewer';
+const THEME_STORAGE_KEY = 'reqtap-theme';
+const DEFAULT_THEME = 'dark';
 
 const state = {
   requests: [],
@@ -17,6 +19,10 @@ const state = {
   userRole: '',
   activeRequest: null,
   activeRequestBody: '',
+  theme: DEFAULT_THEME,
+  detailBodyRaw: '',
+  detailBodyPretty: '',
+  detailBodyMode: 'raw',
 };
 
 let ws;
@@ -48,7 +54,199 @@ const els = {
   actionStatus: document.getElementById('detail-action-status'),
   adminAreas: document.querySelectorAll('[data-admin-only="true"]'),
   adminButtons: document.querySelectorAll('[data-admin-action="true"]'),
+  themeToggle: document.getElementById('theme-toggle'),
+  themeToggleLabel: document.getElementById('theme-toggle-label'),
+  themeToggleIcon: document.getElementById('theme-toggle-icon'),
+  headersCopyBtn: document.getElementById('headers-copy-btn'),
+  headersWrapBtn: document.getElementById('headers-wrap-btn'),
+  bodyCopyBtn: document.getElementById('body-copy-btn'),
+  bodyWrapBtn: document.getElementById('body-wrap-btn'),
+  bodyFormatToggle: document.getElementById('body-format-toggle'),
 };
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to read theme preference', error);
+    return null;
+  }
+}
+
+function persistTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn('Unable to persist theme preference', error);
+  }
+}
+
+function updateThemeToggleUI(theme) {
+  if (!els.themeToggle) return;
+  const isLight = theme === 'light';
+  const nextThemeLabel = isLight ? 'Dark' : 'Light';
+  els.themeToggle.setAttribute('aria-pressed', String(isLight));
+  els.themeToggle.setAttribute('title', `Switch to ${nextThemeLabel} mode`);
+  if (els.themeToggleLabel) {
+    els.themeToggleLabel.textContent = nextThemeLabel;
+  }
+  if (els.themeToggleIcon) {
+    const icon = isLight ? 'fa-moon' : 'fa-sun';
+    els.themeToggleIcon.className = `fa-solid ${icon}`;
+  }
+}
+
+function applyTheme(theme) {
+  const resolvedTheme = theme === 'light' ? 'light' : 'dark';
+  state.theme = resolvedTheme;
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+  updateThemeToggleUI(resolvedTheme);
+}
+
+function initTheme() {
+  const stored = getStoredTheme();
+  applyTheme(stored || DEFAULT_THEME);
+  if (els.themeToggle) {
+    els.themeToggle.addEventListener('click', () => {
+      const nextTheme = state.theme === 'light' ? 'dark' : 'light';
+      applyTheme(nextTheme);
+      persistTheme(nextTheme);
+    });
+  }
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildDetailMeta(item, fullPath, bodySize) {
+  const entries = [
+    { label: 'Request ID', value: item.id || '-' },
+    { label: 'Timestamp', value: formatTime(item.timestamp) },
+    { label: 'Method', value: (item.method || '-').toUpperCase(), pill: 'method' },
+    { label: 'Body Size', value: bodySize, pill: 'metric' },
+    { label: 'Content-Type', value: item.content_type || '-' },
+    { label: 'Client', value: item.remote_addr || '-', mono: true },
+    { label: 'Full Path', value: fullPath, full: true, code: true },
+    { label: 'User-Agent', value: item.user_agent || '-', full: true, mono: true },
+  ];
+
+  const markup = entries
+    .map((entry) => {
+      const classes = ['detail-meta__item'];
+      if (entry.full) {
+        classes.push('detail-meta__item--full');
+      }
+      const label = escapeHtml(entry.label);
+      const safeValue = escapeHtml(entry.value || '-');
+      let valueMarkup = safeValue;
+      if (entry.code) {
+        valueMarkup = `<code class="detail-meta__code">${safeValue}</code>`;
+      } else if (entry.mono) {
+        valueMarkup = `<span class="detail-meta__mono">${safeValue}</span>`;
+      }
+      if (entry.pill) {
+        valueMarkup = `<span class="detail-pill detail-pill--${entry.pill}">${valueMarkup}</span>`;
+      }
+      return `
+        <div class="${classes.join(' ')}">
+          <p class="detail-meta__label">${label}</p>
+          <p class="detail-meta__value">${valueMarkup}</p>
+        </div>`;
+    })
+    .join('');
+
+  return `<div class="detail-meta__grid">${markup}</div>`;
+}
+
+function tryFormatJson(text) {
+  if (!text) {
+    return null;
+  }
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return null;
+  }
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch (error) {
+    return null;
+  }
+}
+
+function isBodyPlaceholder(text) {
+  if (!text) {
+    return true;
+  }
+  return text === '(empty body)' || text.startsWith('[Binary payload]');
+}
+
+function setWrapState(block, button, shouldWrap) {
+  if (!block) {
+    return;
+  }
+  block.classList.toggle('code-block--wrap', shouldWrap);
+  updateWrapButton(button, shouldWrap);
+}
+
+function updateWrapButton(button, shouldWrap) {
+  if (!button) {
+    return;
+  }
+  button.setAttribute('aria-pressed', String(shouldWrap));
+  const label = button.querySelector('.detail-tool-btn__label');
+  if (label) {
+    label.textContent = shouldWrap ? 'Wrap' : 'Scroll';
+  }
+}
+
+function toggleWrapState(block, button) {
+  if (!block) {
+    return;
+  }
+  const nextWrap = !block.classList.contains('code-block--wrap');
+  setWrapState(block, button, nextWrap);
+}
+
+function updateBodyFormatToggle() {
+  if (!els.bodyFormatToggle) {
+    return;
+  }
+  const label = els.bodyFormatToggle.querySelector('.detail-tool-btn__label');
+  const hasPretty = Boolean(state.detailBodyPretty);
+  els.bodyFormatToggle.disabled = !hasPretty;
+  if (!hasPretty) {
+    els.bodyFormatToggle.setAttribute('aria-pressed', 'false');
+    if (label) {
+      label.textContent = 'Pretty';
+    }
+    return;
+  }
+
+  const isPretty = state.detailBodyMode === 'pretty';
+  els.bodyFormatToggle.setAttribute('aria-pressed', String(isPretty));
+  if (label) {
+    label.textContent = isPretty ? 'Raw' : 'Pretty';
+  }
+}
+
+function renderDetailBody() {
+  if (!els.detailBody) {
+    return;
+  }
+  const showPretty = state.detailBodyMode === 'pretty' && state.detailBodyPretty;
+  const content = showPretty ? state.detailBodyPretty : state.detailBodyRaw;
+  els.detailBody.textContent = content || '';
+  updateBodyFormatToggle();
+}
 
 async function apiFetch(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
@@ -230,26 +428,23 @@ function formatSize(bytes) {
 }
 
 function openDetail(item) {
-  const fullPath = `${item.path}${item.query ? `?${item.query}` : ''}`;
+  const fullPath = composeRequestPath(item);
   const bodySize = formatSize(item.size || item.content_length || 0);
-  els.detailMeta.innerHTML = `
-    <div class="grid gap-2 text-sm">
-      <div><span class="detail-label">ID:</span>${item.id || '-'}</div>
-      <div><span class="detail-label">Timestamp:</span>${formatTime(item.timestamp)}</div>
-      <div><span class="detail-label">Method:</span>${item.method}</div>
-      <div><span class="detail-label">Path:</span>${fullPath}</div>
-      <div><span class="detail-label">Client:</span>${item.remote_addr || '-'}</div>
-      <div><span class="detail-label">User-Agent:</span>${item.user_agent || '-'}</div>
-      <div><span class="detail-label">Content-Type:</span>${item.content_type || '-'}</div>
-      <div><span class="detail-label">Body Size:</span>${bodySize}</div>
-    </div>
-  `;
+  els.detailMeta.innerHTML = buildDetailMeta(item, fullPath, bodySize);
 
-  els.detailHeaders.textContent = formatHeaders(item.headers || {});
+  const headersText = formatHeaders(item.headers || {});
+  if (els.detailHeaders) {
+    els.detailHeaders.textContent = headersText || '(no headers)';
+    setWrapState(els.detailHeaders, els.headersWrapBtn, true);
+  }
   const decodedBody = decodeBody(item);
-  els.detailBody.textContent = decodedBody;
   state.activeRequest = item;
   state.activeRequestBody = decodedBody;
+  state.detailBodyRaw = decodedBody;
+  state.detailBodyPretty = isBodyPlaceholder(decodedBody) ? null : tryFormatJson(decodedBody);
+  state.detailBodyMode = state.detailBodyPretty ? 'pretty' : 'raw';
+  renderDetailBody();
+  setWrapState(els.detailBody, els.bodyWrapBtn, true);
   clearActionStatus();
   els.modal.classList.remove('hidden');
   els.modal.classList.add('flex');
@@ -474,6 +669,22 @@ function bindEvents() {
     els.curlCopy.addEventListener('click', () => {
       handleCurlCopy();
     });
+  }
+
+  if (els.headersCopyBtn) {
+    els.headersCopyBtn.addEventListener('click', () => handleHeadersCopy());
+  }
+  if (els.bodyCopyBtn) {
+    els.bodyCopyBtn.addEventListener('click', () => handleBodyCopy());
+  }
+  if (els.bodyFormatToggle) {
+    els.bodyFormatToggle.addEventListener('click', () => handleBodyFormatToggle());
+  }
+  if (els.headersWrapBtn && els.detailHeaders) {
+    els.headersWrapBtn.addEventListener('click', () => toggleWrapState(els.detailHeaders, els.headersWrapBtn));
+  }
+  if (els.bodyWrapBtn && els.detailBody) {
+    els.bodyWrapBtn.addEventListener('click', () => toggleWrapState(els.detailBody, els.bodyWrapBtn));
   }
 }
 
@@ -703,6 +914,36 @@ async function handleCurlCopy() {
   }
 }
 
+async function handleHeadersCopy() {
+  if (!els.detailHeaders) return;
+  try {
+    await copyToClipboard(els.detailHeaders.textContent || '');
+    setActionStatus('Headers copied');
+  } catch (error) {
+    console.error('Failed to copy headers', error);
+    setActionStatus('Failed to copy headers', 'error');
+  }
+}
+
+async function handleBodyCopy() {
+  if (!els.detailBody) return;
+  try {
+    await copyToClipboard(els.detailBody.textContent || '');
+    setActionStatus('Body copied');
+  } catch (error) {
+    console.error('Failed to copy body', error);
+    setActionStatus('Failed to copy body', 'error');
+  }
+}
+
+function handleBodyFormatToggle() {
+  if (!state.detailBodyPretty) {
+    return;
+  }
+  state.detailBodyMode = state.detailBodyMode === 'pretty' ? 'raw' : 'pretty';
+  renderDetailBody();
+}
+
 async function bootstrap() {
   await loadUser();
   await loadRequests();
@@ -710,4 +951,5 @@ async function bootstrap() {
   initWebsocket();
 }
 
+initTheme();
 bootstrap();

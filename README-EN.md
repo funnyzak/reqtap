@@ -187,6 +187,10 @@ ReqTap ships with a zero-dependency web console that is enabled by default. Once
 - Filter/search by HTTP method, path, query, headers, or origin IP
 - Inspect full request details (headers + body) in a modal panel
 - Export the current view as JSON, CSV, or plain text with a single click
+- Toggle between dark and light themes from the header switch; the preference is persisted locally per browser
+- Access the same dark/light switch right on the login page so the experience is consistent before entering the console
+- Use the revamped detail modal tools to copy headers/body independently, flip between wrapped/scrollable layouts, and switch raw/pretty JSON views with a single click
+- Enjoy the redesigned layout where the header, stats, and filter toolbar stay put while only the main request list scrolls, making long sessions easier to navigate
 - (Admins only) Copy/download the full request payload, copy/download the default response payload, and grab a ready-to-run cURL command for any request
 
 APIs powering the dashboard live under the configurable `web.admin_path` (defaults to `/api`):
