@@ -15,10 +15,11 @@ func TestStreamExportJSON(t *testing.T) {
 		RequestData: &RequestDataFixture,
 	}}
 	buf := &bytes.Buffer{}
-	iter := func(yield func(*StoredRequest) bool) {
+	iter := func(yield func(*StoredRequest) bool) error {
 		for _, it := range items {
 			yield(it)
 		}
+		return nil
 	}
 	ct, ext, err := StreamExport(buf, iter, "json")
 	if err != nil {
@@ -45,10 +46,11 @@ var RequestDataFixture = request.RequestData{
 func TestStreamExportCSV(t *testing.T) {
 	items := []*StoredRequest{{ID: "1", RequestData: &RequestDataFixture}}
 	buf := &bytes.Buffer{}
-	iter := func(yield func(*StoredRequest) bool) {
+	iter := func(yield func(*StoredRequest) bool) error {
 		for _, it := range items {
 			yield(it)
 		}
+		return nil
 	}
 	_, _, err := StreamExport(buf, iter, "csv")
 	if err != nil {
@@ -62,10 +64,11 @@ func TestStreamExportCSV(t *testing.T) {
 func TestStreamExportText(t *testing.T) {
 	items := []*StoredRequest{{ID: "1", RequestData: &RequestDataFixture}}
 	buf := &bytes.Buffer{}
-	iter := func(yield func(*StoredRequest) bool) {
+	iter := func(yield func(*StoredRequest) bool) error {
 		for _, it := range items {
 			yield(it)
 		}
+		return nil
 	}
 	_, _, err := StreamExport(buf, iter, "txt")
 	if err != nil {
@@ -77,7 +80,7 @@ func TestStreamExportText(t *testing.T) {
 }
 
 func TestDescribeFormatInvalid(t *testing.T) {
-	if _, _, err := StreamExport(&bytes.Buffer{}, func(func(*StoredRequest) bool) {}, "xml"); err == nil {
+	if _, _, err := StreamExport(&bytes.Buffer{}, func(func(*StoredRequest) bool) error { return nil }, "xml"); err == nil {
 		t.Fatalf("expected error for unsupported format")
 	}
 }

@@ -14,16 +14,17 @@ import (
 )
 
 // RequestIterator 用于按需遍历请求
-type RequestIterator func(func(*StoredRequest) bool)
+type RequestIterator func(func(*StoredRequest) bool) error
 
 // ExportRequests serializes stored requests into the desired format.
 func ExportRequests(data []*StoredRequest, format string) ([]byte, string, string, error) {
-	iter := func(yield func(*StoredRequest) bool) {
+	iter := func(yield func(*StoredRequest) bool) error {
 		for i := 0; i < len(data); i++ {
 			if !yield(data[i]) {
-				return
+				return nil
 			}
 		}
+		return nil
 	}
 	buf := &bytes.Buffer{}
 	contentType, ext, err := StreamExport(buf, iter, format)
@@ -71,7 +72,7 @@ func streamJSON(w io.Writer, iter RequestIterator) error {
 	}
 	first := true
 	var marshalErr error
-	iter(func(item *StoredRequest) bool {
+	if err := iter(func(item *StoredRequest) bool {
 		if marshalErr != nil {
 			return false
 		}
@@ -90,7 +91,9 @@ func streamJSON(w io.Writer, iter RequestIterator) error {
 			return false
 		}
 		return true
-	})
+	}); err != nil {
+		return err
+	}
 	if marshalErr != nil {
 		return marshalErr
 	}
@@ -112,7 +115,7 @@ func streamCSV(w io.Writer, iter RequestIterator) error {
 	}
 
 	var writeErr error
-	iter(func(item *StoredRequest) bool {
+	if err := iter(func(item *StoredRequest) bool {
 		if writeErr != nil {
 			return false
 		}
@@ -133,7 +136,9 @@ func streamCSV(w io.Writer, iter RequestIterator) error {
 		}
 		writeErr = csvWriter.Write(line)
 		return writeErr == nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	csvWriter.Flush()
 	if writeErr != nil {
@@ -147,7 +152,7 @@ func streamText(w io.Writer, iter RequestIterator) error {
 	defer bw.Flush()
 	first := true
 	var writeErr error
-	iter(func(item *StoredRequest) bool {
+	if err := iter(func(item *StoredRequest) bool {
 		if writeErr != nil {
 			return false
 		}
@@ -159,7 +164,9 @@ func streamText(w io.Writer, iter RequestIterator) error {
 		first = false
 		_, writeErr = bw.WriteString(renderPlainRequest(item))
 		return writeErr == nil
-	})
+	}); err != nil {
+		return err
+	}
 	return writeErr
 }
 

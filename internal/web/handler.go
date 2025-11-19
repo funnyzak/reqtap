@@ -16,7 +16,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/static"
-	"github.com/funnyzak/reqtap/pkg/request"
+	"github.com/funnyzak/reqtap/internal/storage"
 )
 
 const (
@@ -39,7 +39,7 @@ type contextKey string
 type Service struct {
 	cfg         *config.WebConfig
 	logger      logger.Logger
-	store       *RequestStore
+	store       storage.Store
 	auth        *AuthManager
 	hub         *WebsocketHub
 	staticFS    fs.FS
@@ -50,8 +50,7 @@ type Service struct {
 }
 
 // NewService builds a Service from configuration.
-func NewService(cfg *config.WebConfig, log logger.Logger) *Service {
-	store := NewRequestStore(cfg.MaxRequests)
+func NewService(cfg *config.WebConfig, store storage.Store, log logger.Logger) *Service {
 	hub := NewWebsocketHub(log)
 	auth := NewAuthManager(cfg.Auth)
 	formats := AllowedFormats(cfg.Export.Formats)
@@ -110,15 +109,18 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 }
 
 // Record stores the request and pushes to websocket clients.
-func (s *Service) Record(data *request.RequestData) {
+func (s *Service) Record(data *StoredRequest) {
 	if s == nil || !s.cfg.Enable {
 		return
 	}
 
-	record := s.store.Add(data)
+	if data == nil {
+		return
+	}
+
 	s.hub.Broadcast(map[string]interface{}{
 		"type": "request",
-		"data": record,
+		"data": data,
 	})
 }
 
@@ -172,6 +174,11 @@ func (s *Service) sessionCleanupInterval() time.Duration {
 }
 
 func (s *Service) handleRequests(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		s.logger.Error("Storage not configured for web service")
+		return
+	}
 	query := r.URL.Query()
 	limit := parseIntDefault(query.Get("limit"), defaultListLimit)
 	if limit > maxListLimit {
@@ -179,12 +186,17 @@ func (s *Service) handleRequests(w http.ResponseWriter, r *http.Request) {
 	}
 	offset := parseIntDefault(query.Get("offset"), 0)
 
-	items, total := s.store.List(ListOptions{
+	items, total, err := s.store.List(ListOptions{
 		Search: query.Get("search"),
 		Method: query.Get("method"),
 		Limit:  limit,
 		Offset: offset,
 	})
+	if err != nil {
+		s.logger.Error("Failed to list requests", "error", err)
+		http.Error(w, "Failed to fetch requests", http.StatusInternalServerError)
+		return
+	}
 
 	resp := map[string]interface{}{
 		"data":   items,
@@ -196,6 +208,11 @@ func (s *Service) handleRequests(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "storage unavailable", http.StatusServiceUnavailable)
+		s.logger.Error("Storage not configured for export")
+		return
+	}
 	if !s.cfg.Export.Enable {
 		http.Error(w, "Export disabled", http.StatusForbidden)
 		return
@@ -238,11 +255,12 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 	// 提前写入状态码，后续流式写入响应体
 	w.WriteHeader(http.StatusOK)
 
-	_, _, err = StreamExport(w, func(yield func(*StoredRequest) bool) {
-		s.store.Iterate(opts, yield)
+	_, _, err = StreamExport(w, func(yield func(*StoredRequest) bool) error {
+		return s.store.Iterate(opts, func(item *StoredRequest) bool {
+			return yield(item)
+		})
 	}, format)
 	if err != nil {
-		http.Error(w, "Failed to export data", http.StatusInternalServerError)
 		s.logger.Error("Export failed", "error", err)
 		return
 	}

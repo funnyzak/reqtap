@@ -8,37 +8,37 @@
 
 **English** | [中文文档](README.md)
 
-ReqTap is a powerful, cross-platform, zero-dependency command-line tool for instantly capturing, inspecting, and forwarding HTTP requests. It serves as your ultimate "request blackhole" and "webhook debugger" for seamless HTTP request analysis.
+ReqTap is a cross-platform, zero-external-dependency HTTP request capture and debugging platform. One self-contained binary ships the CLI collector, embedded SQLite storage, and a WebSocket-enabled dashboard—perfect for local development, containers, CI pipelines, or edge nodes where you need to inspect, replay, and forward HTTP calls instantly.
+
+With ReqTap you can:
+
+- Inspect live HTTP conversations from the terminal with colorized output while still emitting machine-readable JSON logs.
+- Persist every request into SQLite, filter/search/export them, and replay payloads as needed.
+- Subscribe to live traffic from the Web UI or REST APIs, or generate JSON/CSV/TXT snapshots for audits.
+- Forward requests to downstream services with programmable path rewriting, retries, and tracing headers.
 
 ## Use Cases
 
-ReqTap is suitable for the following scenarios:
+- **Webhook & automation debugging** – Point GitHub, Stripe, Zapier, n8n, etc. to ReqTap and diff payloads safely.
+- **Polyglot API development** – Funnel mobile/web/IoT traffic through a single capture point before forwarding to staging.
+- **Microservice & gateway troubleshooting** – Freeze real requests before they reach unstable services, then replay/export during incidents.
+- **Security / zero-trust auditing** – Keep the exposed surface tiny; every inbound request is persisted for offline forensics.
+- **Education & workshops** – Demonstrate HTTP anatomy with CLI + Web UI views in minutes.
+- **DevOps / SRE diagnostics** – Run inside CI, GitHub Actions, or Kubernetes Jobs with `--json` logs for single-shot captures.
+- **Device / SDK playback** – When upstreams are offline, emulate endpoints via programmable responses while persisting real payloads.
 
-- **Webhook development and debugging** - Receive and view HTTP notifications from other systems
-- **API interface testing and debugging** - Check if client-sent request data is correct
-- **Frontend development request analysis** - Analyze API requests sent by webpage JavaScript
-- **Microservices communication debugging** - Monitor HTTP calls between different services
-- **Network security auditing** - Capture and analyze suspicious network requests
-- **Payment callback handling** - Receive payment notifications from platforms like Alipay, WeChat Pay
-- **Automation workflow testing** - Test triggers from automation tools like Zapier, n8n
-- **HTTP protocol teaching demonstrations** - Visually demonstrate HTTP request structure and format
-- **System monitoring and troubleshooting** - Quickly test network connectivity and service availability
-- **Proxy and gateway development** - Use as a debugging tool for proxy servers
-- **Data collection and analysis** - Receive data reports from various devices or systems
+## Key Features
 
-## Features
-
-- **Programmable Instant Responses** - Define multiple `server.responses` rules to return custom status codes/bodies/headers per path or method
-- **Rich Visual Output** - Beautiful colored terminal output that renders captured data in standard HTTP message layout with highlighting for methods, headers, and bodies
-- **Security-First** - Intelligent binary content detection and automatic sensitive information redaction
-- **Async Forwarding** - High-performance asynchronous request forwarding to multiple target URLs
-- **Forwarding Path Strategies** - Switch between `append`, `strip_prefix`, or custom `rewrite` rules to normalize upstream paths
-- **Comprehensive Logging** - Dual logging system with console output and structured file logging with automatic rotation
-- **Flexible Configuration** - Support for command-line arguments, YAML configuration files, and environment variables
-- **Realtime Web Console** - Session-based dashboard with WebSocket streaming, filtering/search and one-click JSON/CSV/TXT export
-- **Cross-Platform** - Single executable with native support for Windows, macOS, and Linux
-- **Zero Dependencies** - Self-contained binary with no external runtime requirements
-- **CI-friendly Output** - `--silence` suppresses rich TTY output while `--json` emits structured logs for pipelines
+- **Lightweight deployment** – Single binary + embedded SQLite (WAL + busy-timeout) means no external DBs or queues.
+- **Built-in persistence** – `storage.max_records` / `storage.retention` enforce count/time pruning, and exports are available as JSON/CSV/Text.
+- **Programmable mock responses** – `server.responses` script per-method/path status codes, bodies, and headers to emulate dependencies.
+- **Readable CLI output** – Runewidth-aware layout, binary detection, sensitive-header redaction, optional hex preview or disk dump.
+- **Concurrent forwarding** – Worker pool with timeouts, retries, and path strategies (`append`/`strip_prefix`/`rewrite`).
+- **Web console + WebSocket** – Session auth, dark mode, filters, detail modals, and batch export backed by the same storage engine.
+- **Unified configuration** – Cobra + Viper merge flags, env vars, and YAML; startup banners/logs echo the effective settings.
+- **Logging & audits** – Zerolog JSON plus lumberjack rotation; `--silence`/`--json` keep CI/log pipelines happy.
+- **Cross-platform releases** – macOS/Linux/Windows binaries, Docker images, Homebrew tap, and install scripts.
+- **Security-conscious defaults** – Header black/whitelists, binary-body suppression, and export-only admin APIs for read-only integrations.
 
 ## Preview
 
@@ -177,6 +177,12 @@ go build -o reqtap ./cmd/reqtap
    ```bash
    reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
    ```
+
+5. **Customize persistence strategy**
+   ```bash
+   reqtap --storage-path /var/lib/reqtap/requests.db --storage-max-records 50000 --storage-retention 168h
+   ```
+   The startup banner and structured logs will echo the effective storage settings so you can audit environments quickly.
 
 ## Web Dashboard
 
@@ -378,6 +384,19 @@ output:
       hex_preview_bytes: 256
       save_to_file: false
       save_directory: ""
+
+# Persistent storage
+storage:
+  driver: "sqlite"        # only sqlite is supported today
+  path: "./data/reqtap.db" # change to an absolute path if preferred
+  max_records: 100000       # cap retained rows (0 = unlimited)
+  retention: 0s             # optional time-based pruning, e.g. "168h"
+
+> **Storage tips**
+> - The embedded SQLite backend runs in WAL mode with a busy timeout, so a single binary works on macOS/Linux/Windows/containers without external services.
+> - Combine `max_records` and `retention` to keep disk usage predictable: aged-out rows are purged first, then the remainder is trimmed by count.
+> - Override at runtime with `--storage-driver`, `--storage-path`, `--storage-max-records`, or `--storage-retention`; the startup banner logs the effective settings.
+> - The legacy `web.max_requests` setting no longer controls retention—use the new `storage.max_records`/`storage.retention` knobs instead.
 ```
 
 By default the request body size is capped at 10 MB. Adjust `server.max_body_bytes` or pass `--max-body-bytes` to change it; set the value to `0` to remove the limit entirely.
@@ -463,16 +482,18 @@ ReqTap is split into several loosely coupled internal packages, each responsible
 - **CLI bootstrap (`cmd/reqtap`)** – Cobra/Viper combine command-line flags, environment variables, and YAML files, validate the final config, and print a startup banner before the server launches.
 - **Configuration & logging (`internal/config`, `internal/logger`)** – `config` owns defaults, merging rules, and validation; `logger` wraps zerolog + lumberjack so both the terminal and the rotating log file share the same structured output API.
 - **HTTP service layer (`internal/server`)** – A Gorilla Mux router receives traffic, and the `Handler` returns 200 OK as soon as the body is read, while the heavy work continues inside background goroutines.
-- **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, dashboard persistence/WebSocket streaming, and multi-target forwarding.
+- **Request processing pipeline (`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`)** – `RequestData` normalizes the raw `http.Request`; a `sync.WaitGroup` then fans out to console printing, SQLite-backed persistence/WebSocket streaming, and multi-target forwarding.
+- **Persistent storage (`internal/storage`)** – Provides a unified `storage.Store` interface with an embedded SQLite backend (WAL + busy timeout) that handles inserts, filtering/pagination, and retention/max-record pruning without extra services.
 - **Forwarder (`internal/forwarder`)** – Maintains a bounded worker pool, applies context timeouts plus exponential backoff retries, mirrors headers that matter, and injects `X-ReqTap-*` tracing headers for every target.
-- **Web console (`internal/web`, `internal/static`)** – Ring-buffer `RequestStore` with per-method index, session-based auth manager, WebSocket hub, JSON/CSV/TXT streaming exporters, and embedded frontend assets that can be mounted under any `web.path`/`web.admin_path` combination.
+- **Web console (`internal/web`, `internal/static`)** – Reuses `storage.Store` for history APIs, offers session-based auth, a WebSocket hub, JSON/CSV/TXT streaming exporters, and ships an embedded frontend so any `web.path`/`web.admin_path` pair can host the UI.
 - **Observability** – Every component logs through the shared `logger.Logger` interface so troubleshooting looks identical in the terminal and in file logs.
 
 ```text
 Clients --> gorilla/mux Router --> Handler --> immediate 200 OK
                            |
                            |-- ConsolePrinter (colorized logging / redaction)
-                           |-- Web Service (RequestStore + REST + WebSocket)
+                           |-- Storage.Store (SQLite WAL + filters/export)
+                           |-- Web Service (REST + WebSocket)
                            `-- Forwarder (worker pool + retries --> Targets)
 ```
 
@@ -480,7 +501,7 @@ Clients --> gorilla/mux Router --> Handler --> immediate 200 OK
 
 1. The CLI entrypoint resolves flags/env/config, then constructs the Logger, Forwarder, ConsolePrinter, and optional Web Service before starting the HTTP server.
 2. Gorilla Mux captures any request under `server.path`. The handler reads the full body, closes it, and instantly sends `200 OK` with `ok` so clients never block on downstream work.
-3. The handler converts the request into `RequestData`, emits a structured log, and hands the record to the Web Service, which stores it in a ring buffer and notifies WebSocket subscribers.
+3. The handler converts the request into `RequestData`, emits a structured log, persists it through `storage.Store`, and forwards the stored record to WebSocket subscribers.
 4. The console printer renders a width-aware, colorized view, detects binary payloads, and automatically redacts sensitive headers (Authorization, Cookie, etc.).
 5. If forwarding is configured, the forwarder concurrently POSTs the payload to every target obeying timeout, concurrency, and retry limits. 4xx/5xx responses trigger exponential backoff retries and detailed logs.
 6. The goroutine waits for printing/storage/forwarding to finish via `WaitGroup`, then exits. The client response is unaffected because it was already flushed in step 2.

@@ -17,6 +17,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
+	"github.com/funnyzak/reqtap/internal/storage"
 	"github.com/funnyzak/reqtap/internal/web"
 )
 
@@ -29,13 +30,14 @@ type Server struct {
 	printer      printer.Printer
 	httpSrv      *http.Server
 	web          *web.Service
+	store        storage.Store
 	baseCtx      context.Context
 	cancel       context.CancelFunc
 	processingWG *sync.WaitGroup
 }
 
 // New creates a new server instance
-func New(cfg *config.Config, log logger.Logger) *Server {
+func New(cfg *config.Config, log logger.Logger) (*Server, error) {
 	baseCtx, cancel := context.WithCancel(context.Background())
 	procWG := &sync.WaitGroup{}
 	// Create printer based on output configuration
@@ -78,14 +80,19 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		Responses: convertImmediateResponseConfigs(cfg.Server.Responses),
 	}
 
+	store, err := storage.New(&cfg.Storage, log)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create web service if enabled
 	var webService *web.Service
 	if cfg.Web.Enable {
-		webService = web.NewService(&cfg.Web, log)
+		webService = web.NewService(&cfg.Web, store, log)
 	}
 
 	// Create handler
-	handler := NewHandler(reqPrinter, forwarder, log, serverConfig, webService, baseCtx, procWG)
+	handler := NewHandler(reqPrinter, forwarder, log, serverConfig, store, webService, baseCtx, procWG)
 
 	return &Server{
 		config:       cfg,
@@ -94,10 +101,11 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		forwarder:    forwarder,
 		printer:      reqPrinter,
 		web:          webService,
+		store:        store,
 		baseCtx:      baseCtx,
 		cancel:       cancel,
 		processingWG: procWG,
-	}
+	}, nil
 }
 
 func convertImmediateResponseConfigs(cfgs []config.ImmediateResponseConfig) []ImmediateResponseRule {
@@ -268,6 +276,9 @@ func (s *Server) waitForShutdown() {
 	if s.web != nil {
 		s.web.Close()
 	}
+	if s.store != nil {
+		s.store.Close()
+	}
 
 	s.logger.Info("Server exited")
 }
@@ -287,6 +298,9 @@ func (s *Server) Stop() error {
 		s.forwarder.Close()
 		if s.web != nil {
 			s.web.Close()
+		}
+		if s.store != nil {
+			s.store.Close()
 		}
 		return err
 	}

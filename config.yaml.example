@@ -196,4 +196,10 @@ output:
       # Persist binary body to disk for inspection
       save_to_file: false
       save_directory: ""
+
+storage:
+  driver: "sqlite"
+  path: "./data/reqtap.db"
+  max_records: 100000
+  retention: 0s
       # CLI 覆盖示例：--body-hex-preview --body-hex-preview-bytes 512 --body-save-binary --body-save-directory /tmp/reqtap

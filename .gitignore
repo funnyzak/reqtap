@@ -42,3 +42,6 @@ go.work.sum
 /reqtap
 
 .gocache/
+
+
+/data

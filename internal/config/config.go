@@ -17,6 +17,7 @@ type Config struct {
 	Forward ForwardConfig `yaml:"forward" mapstructure:"forward"`
 	Web     WebConfig     `yaml:"web" mapstructure:"web"`
 	Output  OutputConfig  `yaml:"output" mapstructure:"output"`
+	Storage StorageConfig `yaml:"storage" mapstructure:"storage"`
 }
 
 // ServerConfig HTTP server configuration
@@ -124,6 +125,14 @@ type OutputConfig struct {
 	Mode     string         `yaml:"mode" mapstructure:"mode"`
 	Silence  bool           `yaml:"silence" mapstructure:"silence"`
 	BodyView BodyViewConfig `yaml:"body_view" mapstructure:"body_view"`
+}
+
+// StorageConfig 持久化存储参数
+type StorageConfig struct {
+	Driver     string        `yaml:"driver" mapstructure:"driver"`
+	Path       string        `yaml:"path" mapstructure:"path"`
+	MaxRecords int           `yaml:"max_records" mapstructure:"max_records"`
+	Retention  time.Duration `yaml:"retention" mapstructure:"retention"`
 }
 
 // BodyViewConfig 控制正文格式化与分段
@@ -485,6 +494,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("output.body_view.binary.hex_preview_bytes", 256)
 	v.SetDefault("output.body_view.binary.save_to_file", false)
 	v.SetDefault("output.body_view.binary.save_directory", "")
+
+	// Storage defaults
+	v.SetDefault("storage.driver", "sqlite")
+	v.SetDefault("storage.path", "./data/reqtap.db")
+	v.SetDefault("storage.max_records", 100000)
+	v.SetDefault("storage.retention", "0s")
 }
 
 // validate configuration
@@ -531,6 +546,24 @@ func (c *Config) Validate() error {
 	}
 	if err := validateBodyViewConfig(&c.Output.BodyView); err != nil {
 		return err
+	}
+
+	switch strings.ToLower(strings.TrimSpace(c.Storage.Driver)) {
+	case "", "sqlite", "sqlite3":
+		if strings.TrimSpace(c.Storage.Driver) == "" {
+			c.Storage.Driver = "sqlite"
+		}
+	default:
+		return fmt.Errorf("storage driver must be sqlite")
+	}
+	if strings.TrimSpace(c.Storage.Path) == "" {
+		return fmt.Errorf("storage path cannot be empty")
+	}
+	if c.Storage.MaxRecords < 0 {
+		return fmt.Errorf("storage max_records cannot be negative")
+	}
+	if c.Storage.Retention < 0 {
+		return fmt.Errorf("storage retention cannot be negative")
 	}
 
 	// Validate log level

@@ -14,6 +14,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/forwarder"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/printer"
+	"github.com/funnyzak/reqtap/internal/storage"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
@@ -23,6 +24,7 @@ type Handler struct {
 	forwarder forwarder.Client
 	logger    logger.Logger
 	config    *ServerConfig
+	store     storage.Store
 	web       RequestRecorder
 	baseCtx   context.Context
 	procWG    *sync.WaitGroup
@@ -58,7 +60,7 @@ type ImmediateResponseRule struct {
 
 // RequestRecorder 抽象存储接口，方便替换为不同的存储实现或测试桩。
 type RequestRecorder interface {
-	Record(*request.RequestData)
+	Record(*storage.StoredRequest)
 	Close()
 }
 
@@ -70,6 +72,7 @@ func NewHandler(
 	forwarder forwarder.Client,
 	logger logger.Logger,
 	config *ServerConfig,
+	store storage.Store,
 	webService RequestRecorder,
 	baseCtx context.Context,
 	procWG *sync.WaitGroup,
@@ -79,6 +82,7 @@ func NewHandler(
 		forwarder: forwarder,
 		logger:    logger,
 		config:    config,
+		store:     store,
 		web:       webService,
 		baseCtx:   baseCtx,
 		procWG:    procWG,
@@ -196,9 +200,20 @@ func (h *Handler) processRequest(ctx context.Context, r *http.Request, bodyBytes
 	record := request.NewRequestData(r, bodyBytes)
 	record.MockResponse = h.toMockResponseSummary(responseRule)
 
-	// Persist to web store if enabled
+	var stored *storage.StoredRequest
+	if h.store != nil {
+		var err error
+		stored, err = h.store.Record(record)
+		if err != nil {
+			h.logger.Error("Failed to persist request", "error", err, "request_id", record.ID)
+		}
+	}
+	if stored == nil {
+		stored = &storage.StoredRequest{ID: record.ID, RequestData: record}
+	}
+
 	if h.web != nil {
-		h.web.Record(record)
+		h.web.Record(stored)
 	}
 
 	// Log request

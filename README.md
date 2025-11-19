@@ -8,37 +8,37 @@
 
 [English](README-EN.md) | **中文**
 
-ReqTap 是一个强大的、跨平台的、零依赖命令行工具，用于即时捕获、检查和转发 HTTP 请求。它作为您的终极"请求黑洞"和"webhook 调试器"，提供无缝的 HTTP 请求分析功能。
+ReqTap 是一个跨平台、零外部依赖的 HTTP 请求捕获与调试平台。单个可执行文件即可同时提供 CLI 采集器、SQLite 持久化存储以及带 WebSocket 的图形化控制台，帮助你在本地、容器、CI 乃至边缘节点快速观察、回放并转发各类 HTTP 调用。
+
+通过 ReqTap，你可以：
+
+- 在 CLI 中实时查看彩色 HTTP 报文，同时输出结构化日志供管线消费；
+- 将所有历史请求落入嵌入式 SQLite，并基于筛选/搜索/导出进行回溯分析；
+- 通过 Web 控制台或 API 即时订阅最新流量，或批量导出 JSON/CSV/TXT；
+- 将请求二次转发到任意下游，并灵活改写路径、重试或附加追踪头。
 
 ## 使用场景
 
-ReqTap 适用于以下场景：
+- **Webhook 与自动化平台调试**：本地劫持 GitHub、Stripe、Zapier、n8n 等回调，快速定位报文差异。
+- **多端 API 开发验证**：移动端、Web、IoT 同时指向 ReqTap，统一查看与转发测试环境服务。
+- **微服务与网关故障排查**：在流量入口收集真实请求，结合重放/导出快速复现实例。
+- **零信任/安全审计**：对外暴露最小功能，所有命中请求均持久化并可离线分析。
+- **课堂演示与培训**：利用终端彩色输出 + Web UI 展示 HTTP 报文结构、常见 Header、Body 差异。
+- **DevOps / SRE 诊断**：配合 `--json` 输出与文件日志，在 CI、GitHub Actions、Kubernetes Job 中捕获一次性流量。
+- **设备/SDK 数据回放**：当真实服务不可用时，利用即时响应规则模拟接口并将真实数据存盘回放。
 
-- **Webhook 开发与调试** - 接收并查看来自其他系统的 HTTP 通知
-- **API 接口测试和调试** - 检查客户端发送的请求数据是否正确
-- **前端开发请求分析** - 分析网页 JavaScript 发送的 API 请求
-- **微服务通信调试** - 监控不同服务之间的 HTTP 调用
-- **网络安全审计** - 捕获可疑的网络请求进行分析
-- **支付回调处理** - 接收支付宝、微信等平台的支付通知
-- **自动化工作流测试** - 测试 Zapier、n8n 等自动化工具的触发器
-- **HTTP 协议教学演示** - 直观展示 HTTP 请求的结构和格式
-- **系统监控和故障排查** - 快速测试网络连通性和服务可用性
-- **代理和网关开发** - 作为代理服务器的调试工具
-- **数据收集和分析** - 接收来自各种设备或系统的数据上报
+## 核心特性
 
-## 特性
-
-- **可编排的即时响应** - 通过 `server.responses` 为不同路径/方法配置专属状态码、Body 和 Header，轻松模拟目标服务
-- **丰富的可视化输出** - 美观的彩色终端输出，采用标准 HTTP 报文排版呈现请求行/头/体，并支持 HTTP 方法、头部和请求体的语法高亮
-- **安全优先** - 智能二进制内容检测和敏感信息自动脱敏
-- **异步转发** - 高性能异步请求转发到多个目标 URL
-- **转发路径策略** - `append`、`strip_prefix`、`rewrite` 三种模式适配多环境 URL 差异
-- **全面日志记录** - 双日志系统，支持控制台输出和结构化文件日志，带自动轮转
-- **灵活配置** - 支持命令行参数、YAML 配置文件和环境变量
-- **实时 Web 控制台** - 基于 Session 的仪表盘，提供 WebSocket 实时流、筛选搜索、JSON/CSV/文本导出
-- **跨平台** - 单一可执行文件，原生支持 Windows、macOS 和 Linux
-- **零依赖** - 自包含二进制文件，无外部运行时依赖
-- **CI / 日志友好** - `--silence` 跳过富文本输出，`--json` 以结构化日志输出，易于接入管线
+- **轻量部署**：单二进制 + 内嵌 SQLite，默认以 WAL 与 busy-timeout 运行，无需额外数据库或消息队列。
+- **内建持久化**：`storage.max_records`、`storage.retention` 既可按数量也可按时间裁剪历史，并支持 JSON/CSV/Text 全量导出。
+- **即时响应编排**：`server.responses` 针对方法/路径设置状态码、Body、Header，快速模拟外部依赖或兜底响应。
+- **高可读 CLI 输出**：使用 runewidth 适配多语言终端，自动检测二进制体、智能脱敏敏感 Header，并支持十六进制预览/落盘。
+- **异步多路转发**：Forwarder 内置限流、超时、重试与并发控制，配合路径策略 (`append`/`strip_prefix`/`rewrite`) 适配不同环境。
+- **Web 控制台 + WebSocket**：Session 登录、暗黑模式、筛选、详情弹窗、批量导出，一切基于统一的持久化存储实现。
+- **统一配置体验**：Cobra + Viper 让 CLI 参数、环境变量、YAML 相互覆盖，启动 Banner 与结构化日志会打印最终配置。
+- **日志与审计**：支持 zerolog JSON 流 + lumberjack 文件滚动，`--silence` 与 `--json` 适配 CI/日志管线。
+- **跨平台友好**：Mac/Linux/Windows 官方预编译，亦可通过 Docker、Homebrew 或脚本一键安装。
+- **安全/可控**：所有外发 Header 均可黑白名单过滤，二进制体默认不打印，支持只读导出 API 以集成到现有监控面板。
 
 ## 预览
 
@@ -177,6 +177,12 @@ go build -o reqtap ./cmd/reqtap
    ```bash
    reqtap --forward-url http://localhost:3000/webhook --forward-url https://api.example.com/ingest
    ```
+
+5. **自定义持久化策略**
+   ```bash
+   reqtap --storage-path /var/lib/reqtap/requests.db --storage-max-records 50000 --storage-retention 168h
+   ```
+   启动 Banner 与结构化日志会同时输出生效的存储配置，方便在多环境比对。
 
 ## Web 控制台
 
@@ -379,6 +385,19 @@ output:
       hex_preview_bytes: 256
       save_to_file: false
       save_directory: ""
+
+# 持久化存储
+storage:
+  driver: "sqlite"        # 目前仅支持 sqlite
+  path: "./data/reqtap.db" # 单文件数据库路径，可使用绝对路径
+  max_records: 100000       # 超出后删除最早的请求
+  retention: 0s             # >0 时按时间窗口删除，例如 "168h"
+
+> **Storage 提示**
+> - SQLite 采用 WAL + busy timeout，单实例即可满足 macOS/Linux/Windows/容器等常见环境，无需额外服务。
+> - `max_records` 与 `retention` 可组合使用：先删过期数据，再按数量裁剪，保证磁盘占用可控。
+> - CLI 可通过 `--storage-path`, `--storage-max-records`, `--storage-retention` 等快速覆盖配置，启动 banner 会显示最终的存储位置与策略。
+> - 旧的 `web.max_requests` 不再控制历史保留数量，如需限制请改用 `storage.max_records`/`storage.retention`。
 ```
 
 默认情况下会限制请求体为 10 MB，可通过 `server.max_body_bytes` 或 `--max-body-bytes` 调整，设置为 `0` 表示不做限制。
@@ -463,16 +482,18 @@ ReqTap 由若干松耦合的内部包组成，每个包都负责请求生命周�
 - **CLI 启动层（`cmd/reqtap`）**：基于 Cobra/Viper 组合命令行参数、环境变量与 YAML 配置，启动前完成配置校验并输出运行信息。
 - **配置与日志（`internal/config`, `internal/logger`）**：`config` 统一默认值、加载顺序与约束校验；`logger` 使用 zerolog + lumberjack 在终端和彩色滚动日志之间共享一套结构化日志接口。
 - **HTTP 服务层（`internal/server`）**：利用 Gorilla Mux 构建路由，`Handler` 会在读取完请求体后立即返回 200 OK，真正的处理逻辑在后台 goroutine 中异步执行。
-- **请求处理流水线（`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`）**：`RequestData` 将原始 `http.Request` 规范化；随后通过 `sync.WaitGroup` fan-out 到控制台打印、Web 控制台入库/推送以及多目标转发，实现彼此独立的消费者。
+- **请求处理流水线（`pkg/request`, `internal/printer`, `internal/web`, `internal/forwarder`）**：`RequestData` 将原始 `http.Request` 规范化；随后通过 `sync.WaitGroup` fan-out 到控制台打印、SQLite 持久化与 WebSocket 推送以及多目标转发，实现彼此独立的消费者。
+- **持久化存储（`internal/storage`）**：统一的 `storage.Store` 接口和 SQLite 实现，负责写入/查询/裁剪请求历史，默认启用 WAL + BusyTimeout 以保证单二进制部署下的跨平台稳定性。
 - **转发器（`internal/forwarder`）**：维持一个有界 worker 池，结合 `context.Context` 超时和指数退避重试策略，将请求复制到所有目标地址并补充 `X-ReqTap-*` 追踪头。
-- **Web 控制台（`internal/web`, `internal/static`）**：包含基于环形缓冲与方法索引的 `RequestStore`、Session 登录管理、WebSocket 推送、JSON/CSV/TXT 流式导出以及内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
+- **Web 控制台（`internal/web`, `internal/static`）**：复用 `storage.Store` 获取历史数据，并提供 Session 登录管理、WebSocket 推送、JSON/CSV/TXT 流式导出以及内嵌前端资源，可通过 `web.path`/`web.admin_path` 在任意前缀下提供 UI 与 API。
 - **可观测性**：所有组件都依赖同一个 `logger.Logger` 接口输出关键字段，便于在 CLI 与文件日志之间保持一致的调试体验。
 
 ```text
 Clients --> gorilla/mux Router --> Handler --> immediate 200 OK
                            |
                            |-- ConsolePrinter (彩色输出 / 脱敏)
-                           |-- Web Service (RequestStore + REST + WebSocket)
+                           |-- Storage.Store (SQLite WAL + 过滤/导出)
+                           |-- Web Service (REST + WebSocket)
                            `-- Forwarder (worker pool + retries --> Targets)
 ```
 
@@ -480,7 +501,7 @@ Clients --> gorilla/mux Router --> Handler --> immediate 200 OK
 
 1. CLI 入口解析 flag/env/config 并创建 Logger、Forwarder、ConsolePrinter 与 Web Service 等依赖。
 2. Gorilla Mux 捕获任意匹配 `server.path` 的请求，Handler 读取完整请求体后立即向客户端返回 `200 OK` 与 `ok` 文本，保证调用方不被阻塞。
-3. Handler 将请求转换为 `RequestData`，记录基础信息，并把数据交给 Web Service 进行持久化（环形缓冲）以及 WebSocket 推送。
+3. Handler 将请求转换为 `RequestData`，记录基础信息，并写入 `storage.Store`，随后将持久化结果广播给 WebSocket 客户端。
 4. 控制台打印器以动态终端宽度渲染彩色输出，同时根据内置规则自动检测二进制内容并对敏感 header 做脱敏。
 5. 若配置了转发地址，Forwarder 会在独立 goroutine 中并发向所有目标发送请求，遵循超时、最大并发和重试策略，遇到 4xx/5xx 会按指数退避重试并输出结构化日志。
 6. 所有后台任务完成后该请求的 goroutine 才会退出，确保转发和日志写入完成，但不会影响已经返回的客户端响应。
