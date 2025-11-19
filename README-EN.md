@@ -44,11 +44,14 @@ With ReqTap you can:
 
 ### Running
 
-![Running Preview](https://github.com/user-attachments/assets/725b948f-4f5e-407f-b2b2-9e4b6a0d4179)
+![运行预览](https://github.com/user-attachments/assets/1ecf5004-6167-44db-b37e-ac841645afcc)
 
 ### Real-time Console
 
-![Real-time Console](https://github.com/user-attachments/assets/353ff050-0022-4779-b2ce-2bf186cf0707)
+![实时控制台](https://github.com/user-attachments/assets/a7a4d8b5-ce4e-40aa-8356-3f5cb6633ade)
+
+![实时控制台](https://github.com/user-attachments/assets/524c95c0-649c-4558-bf6c-756a6cd42e10)
+
 
 ## Quick Start
 
