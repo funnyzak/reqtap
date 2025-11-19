@@ -156,6 +156,43 @@ body.modal-open {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-elevated);
   backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: calc(100vh - 2.5rem);
+  max-height: calc(100vh - 2.5rem);
+  overflow: hidden;
+}
+
+.console-fixed {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.console-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  padding-bottom: 1rem;
+  margin-right: -0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.console-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.console-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.console-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
 }
 
 .page-header {
@@ -350,6 +387,16 @@ body.modal-open {
   overflow: hidden;
 }
 
+.console-scroll .table-shell {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-scroll .table-shell > .overflow-auto {
+  flex: 1;
+}
+
 .table-shell table {
   width: 100%;
   border-collapse: separate;
@@ -401,8 +448,13 @@ body.modal-open {
   overflow-x: auto;
   font-size: 0.85rem;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  white-space: pre;
+  word-break: normal;
+}
+
+.code-block--wrap {
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
 }
 
 .detail-action-wrapper {
@@ -410,6 +462,70 @@ body.modal-open {
   border: 1px solid var(--border-soft);
   background: var(--surface-detail-block);
   padding: 1rem 1.25rem;
+}
+
+.detail-section {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-detail-block);
+  padding: 1rem 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.detail-section__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.detail-section__title {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.detail-section__actions {
+  display: inline-flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.detail-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.35rem 0.6rem;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.detail-tool-btn:hover {
+  color: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+}
+
+.detail-tool-btn[aria-pressed='true'] {
+  color: var(--brand-emerald);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.detail-tool-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--border-soft);
+  color: var(--text-muted);
+}
+
+.detail-tool-btn__label {
+  font-weight: 500;
 }
 
 .detail-action-bar {
@@ -523,11 +639,72 @@ body.modal-open {
   color: var(--text-default);
   min-height: 120px;
 }
+.detail-meta__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
 
-.detail-label {
-  font-size: 0.85rem;
+.detail-meta__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.detail-meta__item--full {
+  grid-column: 1 / -1;
+}
+
+.detail-meta__label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  margin-right: 0.35rem;
+}
+
+.detail-meta__value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.detail-meta__code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  display: inline-block;
+  font-size: 0.85rem;
+}
+
+.detail-meta__mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.detail-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
+}
+
+.detail-pill--method {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--brand-cyan);
+}
+
+.detail-pill--metric {
+  background: rgba(52, 211, 153, 0.16);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: var(--brand-emerald);
 }
 
 .repo-banner {
@@ -577,6 +754,19 @@ body.modal-open {
 
 .font-inter {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@media (max-width: 1024px) {
+  .page-shell {
+    min-height: auto;
+    max-height: none;
+  }
+
+  .console-scroll {
+    overflow: visible;
+    padding-right: 0;
+    margin-right: 0;
+  }
 }
 
 @media (max-width: 768px) {
