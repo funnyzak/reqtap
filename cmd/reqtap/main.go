@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/server"
@@ -67,6 +68,13 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
 	rootCmd.PersistentFlags().Bool("silence", false, "Suppress interactive console output")
 	rootCmd.PersistentFlags().Bool("json", false, "Emit structured JSON output")
+	rootCmd.PersistentFlags().Bool("body-view", false, "Enable structured body formatting in console mode")
+	rootCmd.PersistentFlags().Int("body-preview-bytes", 0, "Maximum bytes to preview before truncating console body output")
+	rootCmd.PersistentFlags().Bool("full-body", false, "Always print full request bodies, ignoring preview limits")
+	rootCmd.PersistentFlags().Bool("body-hex-preview", false, "Enable hexadecimal preview for binary bodies")
+	rootCmd.PersistentFlags().Int("body-hex-preview-bytes", 0, "Limit for hexadecimal preview bytes (0 keeps config value)")
+	rootCmd.PersistentFlags().Bool("body-save-binary", false, "Persist binary bodies to disk when enabled")
+	rootCmd.PersistentFlags().String("body-save-directory", "", "Directory to persist binary bodies (requires --body-save-binary)")
 
 	// Web console configuration flags
 	rootCmd.PersistentFlags().Bool("web-enable", false, "Enable/disable web console")
@@ -107,6 +115,13 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("web.export.enable", cmd.Flags().Lookup("web-export-enable"))
 	viper.BindPFlag("web.export.formats", cmd.Flags().Lookup("web-export-formats"))
 	viper.BindPFlag("output.silence", cmd.Flags().Lookup("silence"))
+	viper.BindPFlag("output.body_view.enable", cmd.Flags().Lookup("body-view"))
+	viper.BindPFlag("output.body_view.max_preview_bytes", cmd.Flags().Lookup("body-preview-bytes"))
+	viper.BindPFlag("output.body_view.full_body", cmd.Flags().Lookup("full-body"))
+	viper.BindPFlag("output.body_view.binary.hex_preview_enable", cmd.Flags().Lookup("body-hex-preview"))
+	viper.BindPFlag("output.body_view.binary.hex_preview_bytes", cmd.Flags().Lookup("body-hex-preview-bytes"))
+	viper.BindPFlag("output.body_view.binary.save_to_file", cmd.Flags().Lookup("body-save-binary"))
+	viper.BindPFlag("output.body_view.binary.save_directory", cmd.Flags().Lookup("body-save-directory"))
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -192,6 +207,41 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	if jsonOutput, err := cmd.Flags().GetBool("json"); err == nil && jsonOutput {
 		cfg.Output.Mode = "json"
+	}
+	if cmd.Flags().Changed("body-view") {
+		if bodyView, err := cmd.Flags().GetBool("body-view"); err == nil {
+			cfg.Output.BodyView.Enable = bodyView
+		}
+	}
+	if cmd.Flags().Changed("body-preview-bytes") {
+		if preview, err := cmd.Flags().GetInt("body-preview-bytes"); err == nil {
+			cfg.Output.BodyView.MaxPreviewBytes = preview
+		}
+	}
+	if cmd.Flags().Changed("full-body") {
+		if fullBody, err := cmd.Flags().GetBool("full-body"); err == nil {
+			cfg.Output.BodyView.FullBody = fullBody
+		}
+	}
+	if cmd.Flags().Changed("body-hex-preview") {
+		if hexPreview, err := cmd.Flags().GetBool("body-hex-preview"); err == nil {
+			cfg.Output.BodyView.Binary.HexPreviewEnable = hexPreview
+		}
+	}
+	if cmd.Flags().Changed("body-hex-preview-bytes") {
+		if bytes, err := cmd.Flags().GetInt("body-hex-preview-bytes"); err == nil {
+			cfg.Output.BodyView.Binary.HexPreviewBytes = bytes
+		}
+	}
+	if cmd.Flags().Changed("body-save-binary") {
+		if save, err := cmd.Flags().GetBool("body-save-binary"); err == nil {
+			cfg.Output.BodyView.Binary.SaveToFile = save
+		}
+	}
+	if cmd.Flags().Changed("body-save-directory") {
+		if dir, err := cmd.Flags().GetString("body-save-directory"); err == nil {
+			cfg.Output.BodyView.Binary.SaveDirectory = dir
+		}
 	}
 
 	// Validate configuration
@@ -383,6 +433,34 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 
 	// Output mode summary
 	lines = append(lines, fmt.Sprintf("🖨️ Output Mode:    %s (silence=%v)", strings.ToLower(cfg.Output.Mode), cfg.Output.Silence))
+	if cfg.Output.BodyView.Enable {
+		preview := "unlimited"
+		if cfg.Output.BodyView.MaxPreviewBytes > 0 {
+			preview = humanize.Bytes(uint64(cfg.Output.BodyView.MaxPreviewBytes))
+		}
+		lines = append(lines, fmt.Sprintf("🧾 Body View:      Enabled (preview=%s, full=%v)", preview, cfg.Output.BodyView.FullBody))
+		lines = append(lines, fmt.Sprintf("   └─ JSON pretty: %v", cfg.Output.BodyView.Json.Pretty))
+		if cfg.Output.BodyView.Binary.HexPreviewEnable {
+			hexBytes := "auto"
+			if cfg.Output.BodyView.Binary.HexPreviewBytes > 0 {
+				hexBytes = humanize.Bytes(uint64(cfg.Output.BodyView.Binary.HexPreviewBytes))
+			}
+			lines = append(lines, fmt.Sprintf("   └─ Hex preview: %s", hexBytes))
+		} else {
+			lines = append(lines, "   └─ Hex preview: disabled")
+		}
+		if cfg.Output.BodyView.Binary.SaveToFile {
+			dir := cfg.Output.BodyView.Binary.SaveDirectory
+			if dir == "" {
+				dir = "(cwd)"
+			}
+			lines = append(lines, fmt.Sprintf("   └─ Binary save: %s", dir))
+		} else {
+			lines = append(lines, "   └─ Binary save: disabled")
+		}
+	} else {
+		lines = append(lines, "🧾 Body View:      Disabled")
+	}
 
 	// File logging information
 	lines = append(lines, "")

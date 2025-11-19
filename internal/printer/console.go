@@ -1,17 +1,22 @@
 package printer
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"
+	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/pkg/request"
 	"golang.org/x/term"
@@ -60,6 +65,9 @@ type ConsolePrinter struct {
 	colorScheme *ColorScheme
 	logger      logger.Logger
 	out         io.Writer
+	formatter   *bodyFormatter
+	bodyView    config.BodyViewConfig
+	promptMu    sync.Mutex
 }
 
 // getTerminalWidth gets the current terminal width with fallback
@@ -134,11 +142,17 @@ func (p *ConsolePrinter) wrapText(text string, maxWidth int) []string {
 }
 
 // NewConsolePrinter creates a new console printer
-func NewConsolePrinter(logger logger.Logger) *ConsolePrinter {
+func NewConsolePrinter(log logger.Logger, viewCfg *config.BodyViewConfig) *ConsolePrinter {
+	var cfg config.BodyViewConfig
+	if viewCfg != nil {
+		cfg = *viewCfg
+	}
 	return &ConsolePrinter{
 		colorScheme: NewColorScheme(),
-		logger:      logger,
+		logger:      log,
 		out:         os.Stdout,
+		formatter:   newBodyFormatter(&cfg, log),
+		bodyView:    cfg,
 	}
 }
 
@@ -308,16 +322,39 @@ func (p *ConsolePrinter) printBody(builder *strings.Builder, data *request.Reque
 	}
 
 	if data.IsBinary {
-		builder.WriteString(p.colorScheme.BinaryNotice.Sprintf("[Binary Body: %s, %s. Content skipped.]", data.ContentType, bodySize))
-		builder.WriteString("\n")
+		p.printBinaryBody(builder, data, bodySize)
 		return
 	}
 
-	p.printBodyContent(builder, data.Body)
+	text := string(data.Body)
+	notices := []string{}
+	if p.formatter != nil {
+		formatted := p.formatter.Format(data)
+		if formatted.Text != "" {
+			text = formatted.Text
+		}
+		notices = append(notices, formatted.Notices...)
+	}
+
+	previewLimit := p.bodyView.MaxPreviewBytes
+	shouldTruncate := p.bodyView.Enable && !p.bodyView.FullBody && previewLimit > 0 && len(text) > previewLimit
+	displayText := text
+	if shouldTruncate {
+		displayText = truncateToBytes(text, previewLimit)
+	}
+
+	p.printBodyContent(builder, displayText)
+	for _, note := range notices {
+		builder.WriteString(p.colorScheme.TruncateNotice.Sprintln(note))
+	}
+
+	if shouldTruncate {
+		builder.WriteString(p.colorScheme.TruncateNotice.Sprintf("[仅展示前 %s（总计 %s）。使用 --full-body 或设置 output.body_view.full_body=true 查看完整正文]", humanize.Bytes(uint64(previewLimit)), bodySize))
+		builder.WriteString("\n")
+	}
 }
 
-func (p *ConsolePrinter) printBodyContent(builder *strings.Builder, body []byte) {
-	content := string(body)
+func (p *ConsolePrinter) printBodyContent(builder *strings.Builder, content string) {
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
@@ -328,6 +365,62 @@ func (p *ConsolePrinter) printBodyContent(builder *strings.Builder, body []byte)
 		}
 		builder.WriteString(p.colorScheme.BodyContent.Sprintln(trimmed))
 	}
+}
+
+func (p *ConsolePrinter) printBinaryBody(builder *strings.Builder, data *request.RequestData, bodySize string) {
+	builder.WriteString(p.colorScheme.BinaryNotice.Sprintf("[Binary Body: %s, %s. Content skipped.]", data.ContentType, bodySize))
+	builder.WriteString("\n")
+	if !p.bodyView.Enable {
+		return
+	}
+
+	if p.bodyView.Binary.HexPreviewEnable && p.bodyView.Binary.HexPreviewBytes > 0 && len(data.Body) > 0 {
+		limit := p.bodyView.Binary.HexPreviewBytes
+		preview := data.Body
+		truncated := false
+		if len(preview) > limit {
+			preview = preview[:limit]
+			truncated = true
+		}
+		builder.WriteString(p.colorScheme.BodyContent.Sprintf("Hex preview (%s):\n", humanize.Bytes(uint64(len(preview)))))
+		builder.WriteString(p.colorScheme.BodyContent.Sprint(hex.Dump(preview)))
+		if truncated {
+			builder.WriteString(p.colorScheme.TruncateNotice.Sprintf("[十六进制预览仅展示前 %s]\n", humanize.Bytes(uint64(limit))))
+		}
+	}
+
+	if p.bodyView.Binary.SaveToFile && len(data.Body) > 0 {
+		if path, err := p.persistBinaryBody(data); err != nil {
+			if p.logger != nil {
+				p.logger.Warn("failed to persist binary body", "error", err, "request_id", data.ID)
+			}
+		} else if path != "" {
+			builder.WriteString(p.colorScheme.BodyContent.Sprintf("[Binary saved to %s]\n", path))
+		}
+	}
+}
+
+func (p *ConsolePrinter) persistBinaryBody(data *request.RequestData) (string, error) {
+	dir := strings.TrimSpace(p.bodyView.Binary.SaveDirectory)
+	if dir == "" {
+		return "", fmt.Errorf("binary save directory is empty")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	filename := fmt.Sprintf("reqtap-%s-%s.bin", time.Now().Format("20060102-150405"), strings.ToLower(data.ID))
+	path := filepath.Join(dir, filename)
+	if err := os.WriteFile(path, data.Body, 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func truncateToBytes(input string, limit int) string {
+	if limit <= 0 || len(input) <= limit {
+		return input
+	}
+	return input[:limit]
 }
 
 // getMethodColor gets the corresponding color based on HTTP method

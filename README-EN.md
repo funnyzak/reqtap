@@ -231,6 +231,13 @@ Flags:
       --log-file-compress          Whether to compress old log files (default true)
       --silence                    Suppress banner and colorful request output
       --json                       Emit JSON lines for machine-readable pipelines
+      --body-view                  Enable structured body formatting (JSON pretty, form tables, etc.)
+      --body-preview-bytes int     Maximum bytes to preview before truncating the console body output
+      --full-body                  Ignore preview limits and always print the complete body
+      --body-hex-preview           Enable hexadecimal preview for binary bodies
+      --body-hex-preview-bytes int Limit hexadecimal preview bytes
+      --body-save-binary           Persist binary request bodies to disk
+      --body-save-directory string Directory used when saving binary bodies (requires --body-save-binary)
   -f, --forward-url stringSlice    Target URLs to forward requests to
       --forward-timeout int        Forward request timeout in seconds (default 30)
       --forward-max-retries int    Maximum retry attempts for forwarded requests (default 3)
@@ -344,6 +351,29 @@ web:
 output:
   mode: "console"   # console / json
   silence: false     # true disables banner/printer output
+  body_view:
+    enable: false
+    max_preview_bytes: 32768
+    full_body: false
+    json:
+      enable: true
+      pretty: true
+      max_indent_bytes: 131072
+    form:
+      enable: true
+    xml:
+      enable: true
+      pretty: true
+      strip_control: true
+    html:
+      enable: true
+      pretty: false
+      strip_control: true
+    binary:
+      hex_preview_enable: false
+      hex_preview_bytes: 256
+      save_to_file: false
+      save_directory: ""
 ```
 
 By default the request body size is capped at 10 MB. Adjust `server.max_body_bytes` or pass `--max-body-bytes` to change it; set the value to `0` to remove the limit entirely.
@@ -353,6 +383,7 @@ Highlights:
 - `server.responses` lets you simulate downstream services with per-path/method status, body, and headers; remember that `path`/`path_prefix` must include the full `server.path` (default `/reqtap`).
 - `forward.path_strategy` normalizes forwarded paths (append, strip prefix, rewrite rules).
 - `output.mode`/`output.silence` map to the `--json`/`--silence` switches for machine-readable pipelines.
+- `output.body_view` powers the smart console renderer. Once enabled it prettifies JSON (with a maximum indent budget), turns form bodies into aligned tables, sanitizes XML/HTML, and offers binary helpers such as hex previews and disk persistence. Use `--body-view`, `--body-preview-bytes`, `--full-body`, `--body-hex-preview`, `--body-hex-preview-bytes`, `--body-save-binary`, and `--body-save-directory` for quick overrides.
 
 **Usage with configuration file:**
 ```bash
