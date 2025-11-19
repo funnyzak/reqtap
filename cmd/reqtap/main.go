@@ -77,6 +77,11 @@ func init() {
 	rootCmd.PersistentFlags().Bool("body-save-binary", false, "Persist binary bodies to disk when enabled")
 	rootCmd.PersistentFlags().String("body-save-directory", "", "Directory to persist binary bodies (requires --body-save-binary)")
 
+	rootCmd.PersistentFlags().String("storage-driver", "", "Storage driver (only sqlite supported)")
+	rootCmd.PersistentFlags().String("storage-path", "", "Storage database file path")
+	rootCmd.PersistentFlags().Int("storage-max-records", 0, "Maximum records persisted (0 keeps config value)")
+	rootCmd.PersistentFlags().String("storage-retention", "", "Retention duration (e.g. 168h); empty disables")
+
 	// Web console configuration flags
 	rootCmd.PersistentFlags().Bool("web-enable", false, "Enable/disable web console")
 	rootCmd.PersistentFlags().String("web-path", "", "Web UI access path")
@@ -123,6 +128,10 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("output.body_view.binary.hex_preview_bytes", cmd.Flags().Lookup("body-hex-preview-bytes"))
 	viper.BindPFlag("output.body_view.binary.save_to_file", cmd.Flags().Lookup("body-save-binary"))
 	viper.BindPFlag("output.body_view.binary.save_directory", cmd.Flags().Lookup("body-save-directory"))
+	viper.BindPFlag("storage.driver", cmd.Flags().Lookup("storage-driver"))
+	viper.BindPFlag("storage.path", cmd.Flags().Lookup("storage-path"))
+	viper.BindPFlag("storage.max_records", cmd.Flags().Lookup("storage-max-records"))
+	viper.BindPFlag("storage.retention", cmd.Flags().Lookup("storage-retention"))
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -244,6 +253,22 @@ func runServer(cmd *cobra.Command, args []string) error {
 			cfg.Output.BodyView.Binary.SaveDirectory = dir
 		}
 	}
+	if storageDriver, err := cmd.Flags().GetString("storage-driver"); err == nil && storageDriver != "" {
+		cfg.Storage.Driver = storageDriver
+	}
+	if storagePath, err := cmd.Flags().GetString("storage-path"); err == nil && storagePath != "" {
+		cfg.Storage.Path = storagePath
+	}
+	if cmd.Flags().Changed("storage-max-records") {
+		if maxRecords, err := cmd.Flags().GetInt("storage-max-records"); err == nil {
+			cfg.Storage.MaxRecords = maxRecords
+		}
+	}
+	if storageRetention, err := cmd.Flags().GetString("storage-retention"); err == nil && storageRetention != "" {
+		if retention, err := time.ParseDuration(storageRetention); err == nil {
+			cfg.Storage.Retention = retention
+		}
+	}
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
@@ -263,7 +288,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 	logStartupSummary(cfg, log)
 
 	// Create and start server
-	srv := server.New(cfg, log)
+	srv, err := server.New(cfg, log)
+	if err != nil {
+		return fmt.Errorf("failed to initialize server: %w", err)
+	}
 	return srv.Start()
 }
 
@@ -362,6 +390,10 @@ Common Scenario Examples
 
   5. Request Monitoring
      reqtap -p 80 --log-file-enable --web-enable --web-export-enable
+
+  6. Persistent Storage (override path/retention/count)
+     reqtap --storage-path /var/lib/reqtap/requests.db \
+       --storage-max-records 50000 --storage-retention 168h
 
 Tips
   - Use 'reqtap version' to check version information
@@ -462,6 +494,20 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 	} else {
 		lines = append(lines, "🧾 Body View:      Disabled")
 	}
+
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("💽 Storage:        %s", strings.ToLower(cfg.Storage.Driver)))
+	lines = append(lines, fmt.Sprintf("   └─ Path:       %s", cfg.Storage.Path))
+	if cfg.Storage.MaxRecords > 0 {
+		lines = append(lines, fmt.Sprintf("   └─ MaxRecords: %d", cfg.Storage.MaxRecords))
+	} else {
+		lines = append(lines, "   └─ MaxRecords: unlimited")
+	}
+	retention := "disabled"
+	if cfg.Storage.Retention > 0 {
+		retention = cfg.Storage.Retention.String()
+	}
+	lines = append(lines, fmt.Sprintf("   └─ Retention:  %s", retention))
 
 	// File logging information
 	lines = append(lines, "")
@@ -603,6 +649,10 @@ func logStartupSummary(cfg *config.Config, log logger.Logger) {
 		"path_strategy", formatPathStrategySummary(cfg),
 		"output_mode", mode,
 		"silence", cfg.Output.Silence,
+		"storage_driver", cfg.Storage.Driver,
+		"storage_path", cfg.Storage.Path,
+		"storage_max_records", cfg.Storage.MaxRecords,
+		"storage_retention", cfg.Storage.Retention.String(),
 	)
 }
 

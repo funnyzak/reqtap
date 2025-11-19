@@ -105,6 +105,19 @@ func TestLoadConfig(t *testing.T) {
 		if cfg.Output.Silence {
 			t.Errorf("Expected silence mode disabled by default")
 		}
+
+		if cfg.Storage.Driver != "sqlite" {
+			t.Errorf("Expected default storage driver sqlite, got %s", cfg.Storage.Driver)
+		}
+		if cfg.Storage.Path == "" {
+			t.Errorf("Expected default storage path to be set")
+		}
+		if cfg.Storage.MaxRecords != 100000 {
+			t.Errorf("Expected default storage max records 100000, got %d", cfg.Storage.MaxRecords)
+		}
+		if cfg.Storage.Retention != 0 {
+			t.Errorf("Expected default storage retention 0, got %s", cfg.Storage.Retention)
+		}
 	})
 }
 
@@ -119,8 +132,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Valid config",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/webhook",
+					Port:      8080,
+					Path:      "/webhook",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -147,8 +160,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Invalid port",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 70000, // Out of range
-					Path: "/",
+					Port:      70000, // Out of range
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 			},
@@ -159,8 +172,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Empty path",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "",
+					Port:      8080,
+					Path:      "",
 					Responses: defaultResponses(),
 				},
 			},
@@ -171,8 +184,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Invalid log level",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -186,8 +199,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "File logging enabled but empty path",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -205,8 +218,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Empty forward URL",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -223,8 +236,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Negative forward timeout",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -242,8 +255,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Zero max concurrent",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -261,11 +274,11 @@ func TestConfigValidation(t *testing.T) {
 			name: "Missing server responses",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: []ImmediateResponseConfig{},
 				},
-				Log: LogConfig{Level: "info"},
+				Log:     LogConfig{Level: "info"},
 				Forward: ForwardConfig{MaxConcurrent: 1},
 			},
 			expectError: true,
@@ -275,8 +288,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Web enabled but missing path",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -302,8 +315,8 @@ func TestConfigValidation(t *testing.T) {
 			name: "Web auth enabled but no users",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{
@@ -331,13 +344,13 @@ func TestConfigValidation(t *testing.T) {
 			name: "Invalid output mode",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
-				Log: LogConfig{Level: "info"},
+				Log:     LogConfig{Level: "info"},
 				Forward: ForwardConfig{MaxConcurrent: 1},
-				Output: OutputConfig{Mode: "yaml"},
+				Output:  OutputConfig{Mode: "yaml"},
 			},
 			expectError: true,
 			errorMsg:    "output mode",
@@ -346,14 +359,14 @@ func TestConfigValidation(t *testing.T) {
 			name: "Invalid path strategy mode",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{Level: "info"},
 				Forward: ForwardConfig{
 					MaxConcurrent: 1,
-					PathStrategy: ForwardPathStrategyConfig{Mode: "mystery"},
+					PathStrategy:  ForwardPathStrategyConfig{Mode: "mystery"},
 				},
 			},
 			expectError: true,
@@ -363,23 +376,68 @@ func TestConfigValidation(t *testing.T) {
 			name: "Rewrite mode missing rules",
 			config: &Config{
 				Server: ServerConfig{
-					Port: 8080,
-					Path: "/",
+					Port:      8080,
+					Path:      "/",
 					Responses: defaultResponses(),
 				},
 				Log: LogConfig{Level: "info"},
 				Forward: ForwardConfig{
 					MaxConcurrent: 1,
-					PathStrategy: ForwardPathStrategyConfig{Mode: "rewrite"},
+					PathStrategy:  ForwardPathStrategyConfig{Mode: "rewrite"},
 				},
 			},
 			expectError: true,
 			errorMsg:    "rules cannot be empty",
 		},
+		{
+			name: "Invalid storage driver",
+			config: &Config{
+				Server: ServerConfig{
+					Port:      8080,
+					Path:      "/",
+					Responses: defaultResponses(),
+				},
+				Log:     LogConfig{Level: "info"},
+				Forward: ForwardConfig{MaxConcurrent: 1},
+				Storage: StorageConfig{
+					Driver:     "bad",
+					Path:       "./data/reqtap.db",
+					MaxRecords: 1000,
+				},
+			},
+			expectError: true,
+			errorMsg:    "storage driver must be sqlite",
+		},
+		{
+			name: "Empty storage path",
+			config: &Config{
+				Server: ServerConfig{
+					Port:      8080,
+					Path:      "/",
+					Responses: defaultResponses(),
+				},
+				Log:     LogConfig{Level: "info"},
+				Forward: ForwardConfig{MaxConcurrent: 1},
+				Storage: StorageConfig{
+					Driver:     "sqlite",
+					Path:       "",
+					MaxRecords: 1000,
+				},
+			},
+			expectError: true,
+			errorMsg:    "storage path cannot be empty",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.config != nil && tt.config.Storage.Driver == "" && tt.config.Storage.Path == "" && tt.config.Storage.MaxRecords == 0 && tt.config.Storage.Retention == 0 {
+				tt.config.Storage = StorageConfig{
+					Driver:     "sqlite",
+					Path:       "./reqtap.db",
+					MaxRecords: 1000,
+				}
+			}
 			err := tt.config.Validate()
 
 			if tt.expectError {
