@@ -10,6 +10,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/server"
+	runewidth "github.com/mattn/go-runewidth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -536,36 +537,9 @@ func main() {
 	}
 }
 
-// calculateDisplayWidth calculates the display width of a string, handling Chinese characters and emoji
+// calculateDisplayWidth calculates the display width of a string using runewidth for better accuracy
 func calculateDisplayWidth(s string) int {
-	width := 0
-	for _, r := range s {
-		// Determine character width
-		if r <= 127 {
-			// ASCII character, width is 1
-			width++
-		} else if (r >= 0x1F600 && r <= 0x1F64F) || // Emoji emoticons
-			(r >= 0x1F300 && r <= 0x1F5FF) || // Other symbols
-			(r >= 0x1F680 && r <= 0x1F6FF) || // Transport and map symbols
-			(r >= 0x2600 && r <= 0x26FF) || // Other symbols
-			(r >= 0x2700 && r <= 0x27BF) { // Decorative symbols
-			// Emoji, width is 2
-			width += 2
-		} else if (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
-			(r >= 0x3400 && r <= 0x4DBF) || // CJK Extension A
-			(r >= 0x20000 && r <= 0x2A6DF) || // CJK Extension B
-			(r >= 0x2A700 && r <= 0x2B73F) || // CJK Extension C
-			(r >= 0x2B740 && r <= 0x2B81F) || // CJK Extension D
-			(r >= 0x2B820 && r <= 0x2CEAF) || // CJK Extension E
-			(r >= 0x2CEB0 && r <= 0x2EBEF) { // CJK Extension F
-			// Chinese character, width is 2
-			width += 2
-		} else {
-			// Other Unicode characters, usually width is 1
-			width++
-		}
-	}
-	return width
+	return runewidth.StringWidth(s)
 }
 
 // printBoxTop prints the top border of the box
