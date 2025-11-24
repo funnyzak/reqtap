@@ -340,6 +340,20 @@ forward:
 > - `urls` 可配置多个下游地址，ReqTap 会并发发送，并遵循 `timeout`、`max_retries` 等限制。
 > - `path_strategy.mode` 为 `append` 时保持默认行为（直接拼接原始路径）；`strip_prefix` 会在转发前剥离监听前缀（默认使用 `server.path`）；`rewrite` 则按 `rules` 顺序执行前缀或正则改写。
 > - 例如：在本例配置下，外部命中的 `/reqtap/demo` 会被裁剪成 `/demo` 后再转发到目标 URL，减少多环境路径差异。
+> - 更多场景与转发链路说明参见下方“Path Strategy 行为详解”。
+
+#### Path Strategy 行为详解
+
+沿用上面的示例配置：`server.path=/reqtap`，`forward.urls` 指向 `http://localhost:3000/webhook` 与 `https://api.example.com/ingest`。ReqTap 接收请求后会先校验是否落在监听路径，然后依据 `path_strategy` 生成新的路径，最终把结果拼接到每个下游 URL 并按并发/重试策略发送。不同模式的行为如下：
+
+- **统一监听但后端已含完整前缀（append）**  
+  请求 `POST https://demo.test/reqtap/webhooks/payment` 命中监听器后保持 `/reqtap/webhooks/payment` 不变，因此会被转发为 `http://localhost:3000/webhook/reqtap/webhooks/payment` 与 `https://api.example.com/ingest/reqtap/webhooks/payment`。适合后端已经内置 `/webhooks/...` 等结构、无需额外重写的情况，保证“所见即所得”。
+- **多环境前缀不一致（strip_prefix）**  
+  配置 `mode=strip_prefix` 且 `strip_prefix=/reqtap`（为空时回退到 `server.path`）。当命中 `GET /reqtap/demo/health` 时，ReqTap 先剥离 `/reqtap`，再把 `/demo/health` 拼接到每个 `forward.urls`；于是 `https://api.example.com/ingest` 会收到 `https://api.example.com/ingest/demo/health`。此模式让本地调试可以维持统一入口 `/reqtap/*`，而下游只感知真实业务路径。
+- **多租户或版本改写（rewrite）**  
+  设置 `mode=rewrite` 并定义 `rules`。例如规则一：`match: "/service"` → `replace: "/api"`；规则二：`match: "^/tenant/(.*)$"`、`replace: "/$1"`、`regex: true`。请求 `/reqtap/tenant/acme/orders` 首先（按需）剥离 `/reqtap`，再按顺序执行规则：第二条将路径转换为 `/acme/orders`，最终转发为 `https://api.example.com/ingest/acme/orders`。规则按声明顺序匹配，若均未命中则保留当前路径，可借此组合前缀/正则实现灰度迁移。
+
+无论使用哪种模式，处理后的路径都会复制给全部 `forward.urls` 并继续受 `timeout`、`max_retries` 等限制约束，因此在多下游转发时也能保持一致的路径规范。
 
 # Web 控制台
 web:

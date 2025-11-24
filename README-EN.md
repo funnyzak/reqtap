@@ -339,6 +339,20 @@ forward:
 > - Populate `urls` with one or more downstream endpoints; ReqTap fans out to each while honoring `timeout`, `max_retries`, and concurrency limits.
 > - With `path_strategy.mode=append` we simply stick the captured path onto the target URL. `strip_prefix` removes your listener prefix (defaults to `server.path`), and `rewrite` lets you define ordered prefix or regex replacements.
 > - In this example a request entering on `/reqtap/demo` will be trimmed to `/demo` before forwarding, removing environment-specific prefixes.
+> - See “Path Strategy Deep Dive” below for detailed configuration-to-forwarding walkthroughs.
+
+#### Path Strategy Deep Dive
+
+Using the configuration above (`server.path=/reqtap`, `forward.urls` pointing at `http://localhost:3000/webhook` and `https://api.example.com/ingest`), ReqTap validates the incoming path against the listener, transforms it according to `path_strategy`, then appends the result to every downstream URL before applying timeout, retry, and concurrency controls. Each mode behaves as follows:
+
+- **Shared listener, downstream already has a prefix (append)**  
+  A request such as `POST https://demo.test/reqtap/webhooks/payment` keeps the original `/reqtap/webhooks/payment` path. It therefore becomes `http://localhost:3000/webhook/reqtap/webhooks/payment` and `https://api.example.com/ingest/reqtap/webhooks/payment` when forwarded, which is ideal when downstream APIs are already namespaced and you just need to mirror what the client sent.
+- **Different prefixes per environment (strip_prefix)**  
+  Configure `mode=strip_prefix` with `strip_prefix=/reqtap` (or omit it to fall back to `server.path`). When `GET /reqtap/demo/health` arrives, ReqTap removes `/reqtap`, forwards `/demo/health`, and the downstream sees `https://api.example.com/ingest/demo/health`. Local tooling can therefore keep the canonical `/reqtap/*` entry point while production services only see their native paths.
+- **Tenant or version rewrites (rewrite)**  
+  Set `mode=rewrite` and declare ordered `rules`. Example rules: `match: "/service"` → `replace: "/api"`, and `match: "^/tenant/(.*)$"`, `replace: "/$1"`, `regex: true`. A request to `/reqtap/tenant/acme/orders` first (optionally) strips `/reqtap`, then the second rule rewrites it to `/acme/orders`, so the final forward becomes `https://api.example.com/ingest/acme/orders`. Rules run sequentially, and unmatched paths fall back to the last successful transformation, which makes it easy to migrate legacy routes alongside new tenants or API versions.
+
+Regardless of the selected mode, the resulting path is cloned across all `forward.urls`, guaranteeing consistent normalization even while ReqTap fans out to multiple downstream services.
 
 # Web Console Configuration
 web:
