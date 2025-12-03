@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "app_title": "ReqTap · Монитор запросов в реальном времени",
+    "login_title": "ReqTap · Вход"
+  },
+  "header": {
+    "title": "Монитор в реальном времени ReqTap",
+    "tagline": "Перехватывайте и исследуйте HTTP-трафик с живыми фильтрами, экспортом и детальным анализом.",
+    "user": "Пользователь",
+    "logout": "Выйти",
+    "language": "Язык",
+    "theme": {
+      "light": "Светлая",
+      "dark": "Тёмная",
+      "switch_to": "Переключиться на {mode} режим"
+    },
+    "ws": {
+      "connected": "Онлайн",
+      "connecting": "Подключение",
+      "error": "Ошибка",
+      "offline": "Офлайн"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "ru": "Русский",
+      "ja": "日本語",
+      "ko": "한국어",
+      "fr": "Français"
+    }
+  },
+  "stats": {
+    "total": "Всего запросов",
+    "filtered": "Отфильтрованные результаты",
+    "export_title": "Экспорт снимка",
+    "export_hint": "JSON / CSV / Текст"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "Текст"
+  },
+  "filters": {
+    "search_label": "Поиск по ключевому слову",
+    "search_placeholder": "URL, запрос, заголовок, IP-адрес клиента...",
+    "method_label": "HTTP-метод",
+    "method_all": "Все",
+    "refresh": "Обновить"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "Время",
+      "method": "Метод",
+      "path": "Путь",
+      "client": "IP клиента",
+      "agent": "User-Agent",
+      "size": "Размер"
+    },
+    "empty": "Пока нет данных. Ожидание нового трафика..."
+  },
+  "repo": {
+    "title": "Репозиторий",
+    "author": "Автор"
+  },
+  "detail": {
+    "overview": "Обзор",
+    "groups": {
+      "request": "Запрос",
+      "replay": "Повтор"
+    },
+    "actions": {
+      "download_request": "Скачать запрос",
+      "copy_request": "Копировать запрос",
+      "copy_curl": "Копировать команду cURL",
+      "status": {
+        "request_downloaded": "Запрос скачан",
+        "request_copied": "Запрос скопирован",
+        "request_copy_failed": "Не удалось скопировать запрос",
+        "curl_copied": "Команда cURL скопирована",
+        "curl_copy_failed": "Не удалось скопировать команду cURL",
+        "headers_copied": "Заголовки скопированы",
+        "headers_copy_failed": "Не удалось скопировать заголовки",
+        "body_copied": "Тело скопировано",
+        "body_copy_failed": "Не удалось скопировать тело"
+      }
+    },
+    "sections": {
+      "headers": "Заголовки",
+      "body": "Тело"
+    },
+    "tools": {
+      "copy": "Копировать",
+      "wrap": "Перенос строк",
+      "scroll": "Прокрутка",
+      "pretty": "Форматировать",
+      "raw": "Raw"
+    },
+    "meta": {
+      "request_id": "ID запроса",
+      "timestamp": "Время",
+      "method": "Метод",
+      "body_size": "Размер тела",
+      "content_type": "Content-Type",
+      "client": "Клиент",
+      "full_path": "Полный путь",
+      "user_agent": "User-Agent"
+    },
+    "placeholders": {
+      "no_headers": "(нет заголовков)",
+      "empty_body": "(пустое тело)",
+      "binary_body": "[Бинарные данные]",
+      "undecodable": "(Не удалось декодировать тело)"
+    },
+    "status": {
+      "admin_required": "Требуются права администратора",
+      "select_request": "Пожалуйста, сначала выберите запрос"
+    }
+  },
+  "alerts": {
+    "export_disabled": "Функция экспорта отключена",
+    "export_admin_required": "Для экспорта данных требуются права администратора",
+    "export_forbidden": "У вас нет прав на экспорт данных",
+    "export_failed": "Ошибка экспорта: {error}",
+    "unknown_error": "Неизвестная ошибка",
+    "admin_required": "Требуются права администратора",
+    "request_failed": "Ошибка запроса"
+  },
+  "login": {
+    "title": "Консоль ReqTap",
+    "subtitle": "Войдите для управления вашим монитором запросов в реальном времени.",
+    "username": "Имя пользователя",
+    "password": "Пароль",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "Войти",
+    "message_failed": "Ошибка входа"
+  }
+}

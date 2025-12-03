@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "app_title": "ReqTap · Live Request Monitor",
+    "login_title": "ReqTap · Login"
+  },
+  "header": {
+    "title": "ReqTap Live Monitor",
+    "tagline": "Capture and explore HTTP traffic with live filters, export, and detail drill-down.",
+    "user": "User",
+    "logout": "Logout",
+    "language": "Language",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "switch_to": "Switch to {mode} mode"
+    },
+    "ws": {
+      "connected": "Online",
+      "connecting": "Connecting",
+      "error": "Error",
+      "offline": "Offline"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "ja": "日本語",
+      "ko": "한국어",
+      "fr": "Français",
+      "ru": "Русский"
+    }
+  },
+  "stats": {
+    "total": "Total Requests",
+    "filtered": "Filtered Result",
+    "export_title": "Export Snapshot",
+    "export_hint": "JSON / CSV / Text"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "Text"
+  },
+  "filters": {
+    "search_label": "Search keyword",
+    "search_placeholder": "URL, query, header, client IP...",
+    "method_label": "HTTP method",
+    "method_all": "All",
+    "refresh": "Refresh"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "Timestamp",
+      "method": "Method",
+      "path": "Path",
+      "client": "Client IP",
+      "agent": "User-Agent",
+      "size": "Size"
+    },
+    "empty": "No data yet. Waiting for fresh traffic..."
+  },
+  "repo": {
+    "title": "Repo",
+    "author": "Author"
+  },
+  "detail": {
+    "overview": "Overview",
+    "groups": {
+      "request": "Request",
+      "replay": "Replay"
+    },
+    "actions": {
+      "download_request": "Download request",
+      "copy_request": "Copy request",
+      "copy_curl": "Copy cURL command",
+      "status": {
+        "request_downloaded": "Request downloaded",
+        "request_copied": "Request copied",
+        "request_copy_failed": "Failed to copy request",
+        "curl_copied": "cURL command copied",
+        "curl_copy_failed": "Failed to copy cURL command",
+        "headers_copied": "Headers copied",
+        "headers_copy_failed": "Failed to copy headers",
+        "body_copied": "Body copied",
+        "body_copy_failed": "Failed to copy body"
+      }
+    },
+    "sections": {
+      "headers": "Headers",
+      "body": "Body"
+    },
+    "tools": {
+      "copy": "Copy",
+      "wrap": "Wrap",
+      "scroll": "Scroll",
+      "pretty": "Pretty",
+      "raw": "Raw"
+    },
+    "meta": {
+      "request_id": "Request ID",
+      "timestamp": "Timestamp",
+      "method": "Method",
+      "body_size": "Body Size",
+      "content_type": "Content-Type",
+      "client": "Client",
+      "full_path": "Full Path",
+      "user_agent": "User-Agent"
+    },
+    "placeholders": {
+      "no_headers": "(no headers)",
+      "empty_body": "(empty body)",
+      "binary_body": "[Binary payload]",
+      "undecodable": "(Unable to decode body)"
+    },
+    "status": {
+      "admin_required": "Admin role required",
+      "select_request": "Please select a request first"
+    }
+  },
+  "alerts": {
+    "export_disabled": "Export feature is disabled",
+    "export_admin_required": "You need admin role to export data",
+    "export_forbidden": "You are not authorized to export data",
+    "export_failed": "Export failed: {error}",
+    "unknown_error": "Unknown error",
+    "admin_required": "Admin role required",
+    "request_failed": "Request failed"
+  },
+  "login": {
+    "title": "ReqTap Console",
+    "subtitle": "Sign in to orchestrate your live request monitor.",
+    "username": "Username",
+    "password": "Password",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "Login",
+    "message_failed": "Login failed"
+  }
+}

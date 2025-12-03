@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "app_title": "ReqTap · 라이브 요청 모니터",
+    "login_title": "ReqTap · 로그인"
+  },
+  "header": {
+    "title": "ReqTap 라이브 모니터",
+    "tagline": "라이브 필터, 내보내기, 상세 드릴다운으로 HTTP 트래픽을 캡처하고 탐색하세요.",
+    "user": "사용자",
+    "logout": "로그아웃",
+    "language": "언어",
+    "theme": {
+      "light": "라이트",
+      "dark": "다크",
+      "switch_to": "{mode} 모드로 전환"
+    },
+    "ws": {
+      "connected": "온라인",
+      "connecting": "연결 중",
+      "error": "오류",
+      "offline": "오프라인"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "ko": "한국어"
+    }
+  },
+  "stats": {
+    "total": "총 요청 수",
+    "filtered": "필터링된 결과",
+    "export_title": "스냅샷 내보내기",
+    "export_hint": "JSON / CSV / 텍스트"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "텍스트"
+  },
+  "filters": {
+    "search_label": "키워드 검색",
+    "search_placeholder": "URL, 쿼리, 헤더, 클라이언트 IP...",
+    "method_label": "HTTP 메서드",
+    "method_all": "전체",
+    "refresh": "새로고침"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "타임스탬프",
+      "method": "메서드",
+      "path": "경로",
+      "client": "클라이언트 IP",
+      "agent": "사용자 에이전트",
+      "size": "크기"
+    },
+    "empty": "아직 데이터가 없습니다. 새로운 트래픽을 기다리는 중..."
+  },
+  "repo": {
+    "title": "저장소",
+    "author": "작성자"
+  },
+  "detail": {
+    "overview": "개요",
+    "groups": {
+      "request": "요청",
+      "replay": "재생"
+    },
+    "actions": {
+      "download_request": "요청 다운로드",
+      "copy_request": "요청 복사",
+      "copy_curl": "cURL 명령어 복사",
+      "status": {
+        "request_downloaded": "요청을 다운로드했습니다",
+        "request_copied": "요청을 복사했습니다",
+        "request_copy_failed": "요청 복사에 실패했습니다",
+        "curl_copied": "cURL 명령어를 복사했습니다",
+        "curl_copy_failed": "cURL 명령어 복사에 실패했습니다",
+        "headers_copied": "헤더를 복사했습니다",
+        "headers_copy_failed": "헤더 복사에 실패했습니다",
+        "body_copied": "본문을 복사했습니다",
+        "body_copy_failed": "본문 복사에 실패했습니다"
+      }
+    },
+    "sections": {
+      "headers": "헤더",
+      "body": "본문"
+    },
+    "tools": {
+      "copy": "복사",
+      "wrap": "줄바꿈",
+      "scroll": "스크롤",
+      "pretty": "정렬",
+      "raw": "Raw"
+    },
+    "meta": {
+      "request_id": "요청 ID",
+      "timestamp": "타임스탬프",
+      "method": "메서드",
+      "body_size": "본문 크기",
+      "content_type": "콘텐츠 타입",
+      "client": "클라이언트",
+      "full_path": "전체 경로",
+      "user_agent": "사용자 에이전트"
+    },
+    "placeholders": {
+      "no_headers": "(헤더 없음)",
+      "empty_body": "(빈 본문)",
+      "binary_body": "[바이너리 페이로드]",
+      "undecodable": "(본문을 디코드할 수 없음)"
+    },
+    "status": {
+      "admin_required": "관리자 권한이 필요합니다",
+      "select_request": "먼저 요청을 선택해주세요"
+    }
+  },
+  "alerts": {
+    "export_disabled": "내보내기 기능이 비활성화되어 있습니다",
+    "export_admin_required": "데이터를 내보내려면 관리자 권한이 필요합니다",
+    "export_forbidden": "데이터를 내보낼 권한이 없습니다",
+    "export_failed": "내보내기 실패: {error}",
+    "unknown_error": "알 수 없는 오류",
+    "admin_required": "관리자 권한이 필요합니다",
+    "request_failed": "요청에 실패했습니다"
+  },
+  "login": {
+    "title": "ReqTap 콘솔",
+    "subtitle": "라이브 요청 모니터를 관리하기 위해 로그인하세요.",
+    "username": "사용자명",
+    "password": "비밀번호",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "로그인",
+    "message_failed": "로그인에 실패했습니다"
+  }
+}

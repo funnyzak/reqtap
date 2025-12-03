@@ -69,6 +69,7 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
 	rootCmd.PersistentFlags().Bool("silence", false, "Suppress interactive console output")
 	rootCmd.PersistentFlags().Bool("json", false, "Emit structured JSON output")
+	rootCmd.PersistentFlags().String("locale", "", "Output locale (e.g. en, zh-CN)")
 	rootCmd.PersistentFlags().Bool("body-view", false, "Enable structured body formatting in console mode")
 	rootCmd.PersistentFlags().Int("body-preview-bytes", 0, "Maximum bytes to preview before truncating console body output")
 	rootCmd.PersistentFlags().Bool("full-body", false, "Always print full request bodies, ignoring preview limits")
@@ -110,6 +111,7 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("log.file_logging.max_age_days", cmd.Flags().Lookup("log-file-max-age"))
 	viper.BindPFlag("log.file_logging.compress", cmd.Flags().Lookup("log-file-compress"))
 	viper.BindPFlag("forward.urls", cmd.Flags().Lookup("forward-url"))
+	viper.BindPFlag("output.locale", cmd.Flags().Lookup("locale"))
 
 	// Web console configuration bindings
 	viper.BindPFlag("web.enable", cmd.Flags().Lookup("web-enable"))
@@ -180,6 +182,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	if forwardURLs, err := cmd.Flags().GetStringSlice("forward-url"); err == nil && len(forwardURLs) > 0 {
 		cfg.Forward.URLs = forwardURLs
+	}
+	if locale, err := cmd.Flags().GetString("locale"); err == nil && strings.TrimSpace(locale) != "" {
+		cfg.Output.Locale = strings.TrimSpace(locale)
 	}
 
 	// Override with web console command line arguments (command line has highest priority)

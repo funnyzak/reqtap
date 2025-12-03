@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "app_title": "ReqTap · ライブリクエストモニター",
+    "login_title": "ReqTap · ログイン"
+  },
+  "header": {
+    "title": "ReqTap ライブモニター",
+    "tagline": "ライブフィルター、エクスポート、詳細ドリルダウンでHTTPトラフィックをキャプチャ・探索。",
+    "user": "ユーザー",
+    "logout": "ログアウト",
+    "language": "言語",
+    "theme": {
+      "light": "ライト",
+      "dark": "ダーク",
+      "switch_to": "{mode}モードに切り替え"
+    },
+    "ws": {
+      "connected": "オンライン",
+      "connecting": "接続中",
+      "error": "エラー",
+      "offline": "オフライン"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "ja": "日本語"
+    }
+  },
+  "stats": {
+    "total": "総リクエスト数",
+    "filtered": "フィルター結果",
+    "export_title": "スナップショットをエクスポート",
+    "export_hint": "JSON / CSV / テキスト"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "テキスト"
+  },
+  "filters": {
+    "search_label": "キーワード検索",
+    "search_placeholder": "URL、クエリ、ヘッダー、クライアントIP...",
+    "method_label": "HTTPメソッド",
+    "method_all": "すべて",
+    "refresh": "更新"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "タイムスタンプ",
+      "method": "メソッド",
+      "path": "パス",
+      "client": "クライアントIP",
+      "agent": "ユーザーエージェント",
+      "size": "サイズ"
+    },
+    "empty": "まだデータがありません。新しいトラフィックを待機中..."
+  },
+  "repo": {
+    "title": "リポジトリ",
+    "author": "作成者"
+  },
+  "detail": {
+    "overview": "概要",
+    "groups": {
+      "request": "リクエスト",
+      "replay": "リプレイ"
+    },
+    "actions": {
+      "download_request": "リクエストをダウンロード",
+      "copy_request": "リクエストをコピー",
+      "copy_curl": "cURLコマンドをコピー",
+      "status": {
+        "request_downloaded": "リクエストをダウンロードしました",
+        "request_copied": "リクエストをコピーしました",
+        "request_copy_failed": "リクエストのコピーに失敗しました",
+        "curl_copied": "cURLコマンドをコピーしました",
+        "curl_copy_failed": "cURLコマンドのコピーに失敗しました",
+        "headers_copied": "ヘッダーをコピーしました",
+        "headers_copy_failed": "ヘッダーのコピーに失敗しました",
+        "body_copied": "ボディをコピーしました",
+        "body_copy_failed": "ボディのコピーに失敗しました"
+      }
+    },
+    "sections": {
+      "headers": "ヘッダー",
+      "body": "ボディ"
+    },
+    "tools": {
+      "copy": "コピー",
+      "wrap": "折り返し",
+      "scroll": "スクロール",
+      "pretty": "整形",
+      "raw": "Raw"
+    },
+    "meta": {
+      "request_id": "リクエストID",
+      "timestamp": "タイムスタンプ",
+      "method": "メソッド",
+      "body_size": "ボディサイズ",
+      "content_type": "コンテンツタイプ",
+      "client": "クライアント",
+      "full_path": "フルパス",
+      "user_agent": "ユーザーエージェント"
+    },
+    "placeholders": {
+      "no_headers": "(ヘッダーなし)",
+      "empty_body": "(空のボディ)",
+      "binary_body": "[バイナリペイロード]",
+      "undecodable": "(ボディをデコードできません)"
+    },
+    "status": {
+      "admin_required": "管理者権限が必要です",
+      "select_request": "まずリクエストを選択してください"
+    }
+  },
+  "alerts": {
+    "export_disabled": "エクスポート機能は無効です",
+    "export_admin_required": "データをエクスポートするには管理者権限が必要です",
+    "export_forbidden": "データをエクスポートする権限がありません",
+    "export_failed": "エクスポートに失敗しました: {error}",
+    "unknown_error": "不明なエラー",
+    "admin_required": "管理者権限が必要です",
+    "request_failed": "リクエストに失敗しました"
+  },
+  "login": {
+    "title": "ReqTap コンソール",
+    "subtitle": "ライブリクエストモニターを管理するためにサインインしてください。",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "ログイン",
+    "message_failed": "ログインに失敗しました"
+  }
+}

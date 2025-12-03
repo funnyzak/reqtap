@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "app_title": "ReqTap · Moniteur de requêtes en direct",
+    "login_title": "ReqTap · Connexion"
+  },
+  "header": {
+    "title": "Moniteur en direct ReqTap",
+    "tagline": "Capturez et explorez le trafic HTTP avec des filtres en direct, exportez et effectuez des analyses détaillées.",
+    "user": "Utilisateur",
+    "logout": "Déconnexion",
+    "language": "Langue",
+    "theme": {
+      "light": "Clair",
+      "dark": "Sombre",
+      "switch_to": "Basculer en mode {mode}"
+    },
+    "ws": {
+      "connected": "En ligne",
+      "connecting": "Connexion en cours",
+      "error": "Erreur",
+      "offline": "Hors ligne"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "fr": "Français",
+      "ja": "日本語",
+      "ko": "한국어",
+      "ru": "Русский"
+    }
+  },
+  "stats": {
+    "total": "Total des requêtes",
+    "filtered": "Résultats filtrés",
+    "export_title": "Exporter l'instantané",
+    "export_hint": "JSON / CSV / Texte"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "Texte"
+  },
+  "filters": {
+    "search_label": "Rechercher un mot-clé",
+    "search_placeholder": "URL, requête, en-tête, IP client...",
+    "method_label": "Méthode HTTP",
+    "method_all": "Toutes",
+    "refresh": "Actualiser"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "Horodatage",
+      "method": "Méthode",
+      "path": "Chemin",
+      "client": "IP client",
+      "agent": "User-Agent",
+      "size": "Taille"
+    },
+    "empty": "Pas encore de données. En attente de nouveau trafic..."
+  },
+  "repo": {
+    "title": "Dépôt",
+    "author": "Auteur"
+  },
+  "detail": {
+    "overview": "Aperçu",
+    "groups": {
+      "request": "Requête",
+      "replay": "Relecture"
+    },
+    "actions": {
+      "download_request": "Télécharger la requête",
+      "copy_request": "Copier la requête",
+      "copy_curl": "Copier la commande cURL",
+      "status": {
+        "request_downloaded": "Requête téléchargée",
+        "request_copied": "Requête copiée",
+        "request_copy_failed": "Échec de la copie de la requête",
+        "curl_copied": "Commande cURL copiée",
+        "curl_copy_failed": "Échec de la copie de la commande cURL",
+        "headers_copied": "En-têtes copiés",
+        "headers_copy_failed": "Échec de la copie des en-têtes",
+        "body_copied": "Corps copié",
+        "body_copy_failed": "Échec de la copie du corps"
+      }
+    },
+    "sections": {
+      "headers": "En-têtes",
+      "body": "Corps"
+    },
+    "tools": {
+      "copy": "Copier",
+      "wrap": "Retour à la ligne",
+      "scroll": "Défilement",
+      "pretty": "Mise en forme",
+      "raw": "Brut"
+    },
+    "meta": {
+      "request_id": "ID de requête",
+      "timestamp": "Horodatage",
+      "method": "Méthode",
+      "body_size": "Taille du corps",
+      "content_type": "Type de contenu",
+      "client": "Client",
+      "full_path": "Chemin complet",
+      "user_agent": "User-Agent"
+    },
+    "placeholders": {
+      "no_headers": "(aucun en-tête)",
+      "empty_body": "(corps vide)",
+      "binary_body": "[Charge binaire]",
+      "undecodable": "(Impossible de décoder le corps)"
+    },
+    "status": {
+      "admin_required": "Rôle administrateur requis",
+      "select_request": "Veuillez d'abord sélectionner une requête"
+    }
+  },
+  "alerts": {
+    "export_disabled": "La fonction d'exportation est désactivée",
+    "export_admin_required": "Vous devez avoir un rôle d'administrateur pour exporter des données",
+    "export_forbidden": "Vous n'êtes pas autorisé à exporter des données",
+    "export_failed": "Échec de l'exportation : {error}",
+    "unknown_error": "Erreur inconnue",
+    "admin_required": "Rôle administrateur requis",
+    "request_failed": "Échec de la requête"
+  },
+  "login": {
+    "title": "Console ReqTap",
+    "subtitle": "Connectez-vous pour orchestrer votre moniteur de requêtes en direct.",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "Connexion",
+    "message_failed": "Échec de la connexion"
+  }
+}

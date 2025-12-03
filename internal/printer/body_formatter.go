@@ -18,12 +18,15 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
 type bodyFormatter struct {
 	cfg    *config.BodyViewConfig
 	logger logger.Logger
+	intl   *i18n.Translator
+	locale string
 }
 
 type formattedBody struct {
@@ -31,11 +34,22 @@ type formattedBody struct {
 	Notices []string
 }
 
-func newBodyFormatter(cfg *config.BodyViewConfig, log logger.Logger) *bodyFormatter {
+func newBodyFormatter(cfg *config.BodyViewConfig, log logger.Logger, translator *i18n.Translator, locale string) *bodyFormatter {
 	if cfg == nil {
 		cfg = &config.BodyViewConfig{}
 	}
-	return &bodyFormatter{cfg: cfg, logger: log}
+	resolved := strings.TrimSpace(locale)
+	if resolved == "" && translator != nil {
+		resolved = translator.DefaultLocale()
+	}
+	return &bodyFormatter{cfg: cfg, logger: log, intl: translator, locale: resolved}
+}
+
+func (f *bodyFormatter) t(key string) string {
+	if f == nil || f.intl == nil {
+		return key
+	}
+	return f.intl.Text(f.locale, key)
 }
 
 func (f *bodyFormatter) Format(data *request.RequestData) formattedBody {
@@ -80,7 +94,7 @@ func (f *bodyFormatter) formatJSON(mediaType string, body []byte) (formattedBody
 		return formattedBody{Text: string(body)}, true
 	}
 	if f.cfg.Json.MaxIndentBytes > 0 && len(trimmed) > f.cfg.Json.MaxIndentBytes {
-		notice := fmt.Sprintf("JSON 体超过 %s，已跳过缩进", humanize.Bytes(uint64(f.cfg.Json.MaxIndentBytes)))
+		notice := fmt.Sprintf(f.t(keyJSONIndentSkipped), humanize.Bytes(uint64(f.cfg.Json.MaxIndentBytes)))
 		return formattedBody{Text: string(body), Notices: []string{notice}}, true
 	}
 	var buf bytes.Buffer
@@ -115,15 +129,21 @@ func (f *bodyFormatter) formatForm(mediaType string, body []byte) (formattedBody
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	maxKeyWidth := utf8.RuneCountInString("Key")
+	keyHeader := f.t(keyFormKeyHeader)
+	valueHeader := f.t(keyFormValueHeader)
+	maxKeyWidth := utf8.RuneCountInString(keyHeader)
 	for _, key := range keys {
 		if w := utf8.RuneCountInString(key); w > maxKeyWidth {
 			maxKeyWidth = w
 		}
 	}
 	var builder strings.Builder
-	builder.WriteString("Form data:\n")
-	fmt.Fprintf(&builder, "%-*s │ %s\n", maxKeyWidth, "Key", "Value")
+	title := f.t(keyFormTitle)
+	if title == "" {
+		title = "Form data:"
+	}
+	builder.WriteString(title + "\n")
+	fmt.Fprintf(&builder, "%-*s │ %s\n", maxKeyWidth, keyHeader, valueHeader)
 	divider := strings.Repeat("─", maxKeyWidth)
 	builder.WriteString(divider + "─┼" + strings.Repeat("─", 40) + "\n")
 	for _, key := range keys {

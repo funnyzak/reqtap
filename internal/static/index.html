@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ReqTap · Live Request Monitor</title>
+  <title data-i18n="meta.app_title">ReqTap · Live Request Monitor</title>
   <script>
     (function () {
       try {
@@ -30,54 +30,58 @@
       <header class="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <i class="fa-solid fa-wave-square text-emerald-400"></i>
-            ReqTap Live Monitor
+            <i class="fa-solid fa-wave-square brand-icon" aria-hidden="true"></i>
+            <span data-i18n="header.title">ReqTap Live Monitor</span>
           </h1>
-          <p class="tagline">Capture and explore HTTP traffic with live filters, export, and detail drill-down.</p>
+          <p class="tagline" data-i18n="header.tagline">Capture and explore HTTP traffic with live filters, export, and detail drill-down.</p>
         </div>
         <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
           <div class="user-chip">
-            <span class="text-muted">User</span>
+            <span class="text-muted" data-i18n="header.user">User</span>
             <span id="current-user" class="font-semibold">-</span>
-            <span id="current-role" class="text-xs uppercase tracking-wide text-emerald-300">-</span>
+            <span id="current-role" class="text-xs uppercase tracking-wide role-badge">-</span>
           </div>
           <span id="ws-status" class="status-pill inline-flex items-center gap-2">
             <span class="indicator bg-yellow-400"></span>
-            <span class="status-label">Connecting</span>
+            <span class="status-label" data-i18n="header.ws.connecting">Connecting</span>
           </span>
+          <div class="locale-switch">
+            <label for="locale-select" class="sr-only" data-i18n="header.language">Language</label>
+            <select id="locale-select" class="locale-select" aria-label="Language"></select>
+          </div>
           <button id="theme-toggle" type="button" class="action-btn theme-toggle" aria-pressed="false">
             <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
-            <span id="theme-toggle-label">Light</span>
+            <span id="theme-toggle-label" data-i18n="header.theme.light">Light</span>
           </button>
           <button id="logout-btn" class="action-btn action-btn--danger text-sm">
             <i class="fa-solid fa-power-off"></i>
-            Logout
+            <span data-i18n="header.logout">Logout</span>
           </button>
         </div>
       </header>
 
       <section class="grid gap-4 lg:grid-cols-3">
         <div class="stat-card">
-          <p class="stat-card__title">Total Requests</p>
+          <p class="stat-card__title" data-i18n="stats.total">Total Requests</p>
           <p id="total-counter" class="stat-card__value">0</p>
         </div>
         <div class="stat-card">
-          <p class="stat-card__title">Filtered Result</p>
+          <p class="stat-card__title" data-i18n="stats.filtered">Filtered Result</p>
           <p id="filtered-counter" class="stat-card__value">0</p>
         </div>
         <div id="export-section" class="stat-card flex items-center justify-between">
           <div>
-            <p class="stat-card__title">Export Snapshot</p>
-            <p class="stat-card__hint">JSON / CSV / Text</p>
+            <p class="stat-card__title" data-i18n="stats.export_title">Export Snapshot</p>
+            <p class="stat-card__hint" data-i18n="stats.export_hint">JSON / CSV / Text</p>
           </div>
           <div class="flex gap-2">
-            <button data-format="json" class="export-btn bg-emerald-500/20 text-emerald-200">
+            <button data-format="json" class="export-btn export-btn--emerald bg-emerald-500/20" data-i18n="export.json">
               JSON
             </button>
-            <button data-format="csv" class="export-btn bg-cyan-500/20 text-cyan-200">
+            <button data-format="csv" class="export-btn export-btn--cyan bg-cyan-500/20" data-i18n="export.csv">
               CSV
             </button>
-            <button data-format="txt" class="export-btn bg-cyan-500/20 text-cyan-200">
+            <button data-format="txt" class="export-btn export-btn--cyan bg-cyan-500/20" data-i18n="export.txt">
               Text
             </button>
           </div>
@@ -87,19 +91,19 @@
       <section class="filters-panel p-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div class="flex-1">
-            <label class="control-label">Search keyword</label>
+            <label class="control-label" data-i18n="filters.search_label">Search keyword</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-muted">
                 <i class="fa-solid fa-magnifying-glass"></i>
               </span>
-              <input id="search-input" type="text" placeholder="URL, query, header, client IP..."
+              <input id="search-input" type="text" data-i18n-placeholder="filters.search_placeholder" placeholder="URL, query, header, client IP..."
                 class="control-input pl-10 pr-3" />
             </div>
           </div>
           <div class="w-full lg:w-48">
-            <label class="control-label">HTTP method</label>
+            <label class="control-label" data-i18n="filters.method_label">HTTP method</label>
             <select id="method-filter" class="control-select">
-              <option value="">All</option>
+              <option value="" data-i18n="filters.method_all">All</option>
               <option>GET</option>
               <option>POST</option>
               <option>PUT</option>
@@ -111,7 +115,7 @@
           <div class="flex items-center gap-3">
             <button id="refresh-btn" class="action-btn">
               <i class="fa-solid fa-rotate"></i>
-              Refresh
+              <span data-i18n="filters.refresh">Refresh</span>
             </button>
           </div>
         </div>
@@ -124,31 +128,31 @@
           <table class="min-w-full divide-y divide-slate-800 text-sm">
             <thead>
             <tr>
-              <th class="px-4 py-3 text-left">Timestamp</th>
-              <th class="px-4 py-3 text-left">Method</th>
-              <th class="px-4 py-3 text-left">Path</th>
-              <th class="px-4 py-3 text-left">Client IP</th>
-              <th class="px-4 py-3 text-left">User-Agent</th>
-              <th class="px-4 py-3 text-right">Size</th>
+              <th class="px-4 py-3 text-left" data-i18n="table.headers.timestamp">Timestamp</th>
+              <th class="px-4 py-3 text-left" data-i18n="table.headers.method">Method</th>
+              <th class="px-4 py-3 text-left" data-i18n="table.headers.path">Path</th>
+              <th class="px-4 py-3 text-left" data-i18n="table.headers.client">Client IP</th>
+              <th class="px-4 py-3 text-left" data-i18n="table.headers.agent">User-Agent</th>
+              <th class="px-4 py-3 text-right" data-i18n="table.headers.size">Size</th>
             </tr>
           </thead>
           <tbody id="requests-body" class="divide-y divide-slate-900/60"></tbody>
         </table>
       </div>
-      <div id="empty-state" class="empty-state hidden">
+      <div id="empty-state" class="empty-state hidden" data-i18n="table.empty">
         No data yet. Waiting for fresh traffic...
       </div>
     </section>
 
     <section class="repo-banner text-sm">
       <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-muted">Repo</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-muted" data-i18n="repo.title">Repo</p>
         <a href="https://github.com/funnyzak/reqtap" target="_blank" rel="noreferrer noopener">
           funnyzak/reqtap
         </a>
       </div>
       <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-muted">Author</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-muted" data-i18n="repo.author">Author</p>
         <span class="font-semibold">funnyzak</span>
       </div>
     </section>
@@ -164,26 +168,26 @@
       </button>
       <div class="p-6 space-y-6 text-sm">
         <div>
-          <p class="text-xs uppercase tracking-wide text-muted mb-1">Overview</p>
+          <p class="text-xs uppercase tracking-wide text-muted mb-1" data-i18n="detail.overview">Overview</p>
           <div class="detail-meta" id="detail-meta"></div>
         </div>
         <div class="detail-action-wrapper" data-admin-only="true">
           <div class="detail-action-bar">
             <div class="detail-action-group">
-              <span class="detail-action-group__label">Request</span>
+              <span class="detail-action-group__label" data-i18n="detail.groups.request">Request</span>
               <div class="detail-action-buttons">
-                <button id="request-download-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Download request" title="Download request" aria-label="Download request">
+                <button id="request-download-btn" type="button" class="icon-btn" data-admin-action="true" data-i18n-title="detail.actions.download_request" data-i18n-aria-label="detail.actions.download_request" title="Download request" aria-label="Download request">
                   <i class="fa-solid fa-file-arrow-down"></i>
                 </button>
-                <button id="request-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Copy request" title="Copy request" aria-label="Copy request">
+                <button id="request-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-i18n-title="detail.actions.copy_request" data-i18n-aria-label="detail.actions.copy_request" title="Copy request" aria-label="Copy request">
                   <i class="fa-solid fa-copy"></i>
                 </button>
               </div>
             </div>
               <div class="detail-action-group">
-              <span class="detail-action-group__label">Replay</span>
+              <span class="detail-action-group__label" data-i18n="detail.groups.replay">Replay</span>
               <div class="detail-action-buttons">
-                <button id="curl-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-label="Copy cURL command" title="Copy cURL command" aria-label="Copy cURL command">
+                <button id="curl-copy-btn" type="button" class="icon-btn" data-admin-action="true" data-i18n-title="detail.actions.copy_curl" data-i18n-aria-label="detail.actions.copy_curl" title="Copy cURL command" aria-label="Copy cURL command">
                   <i class="fa-solid fa-terminal"></i>
                 </button>
               </div>
@@ -193,15 +197,15 @@
         </div>
         <div class="detail-section">
           <div class="detail-section__bar">
-            <p class="detail-section__title">Headers</p>
+            <p class="detail-section__title" data-i18n="detail.sections.headers">Headers</p>
             <div class="detail-section__actions">
-              <button id="headers-copy-btn" type="button" class="detail-tool-btn" title="Copy headers">
+              <button id="headers-copy-btn" type="button" class="detail-tool-btn" data-i18n-title="detail.tools.copy" title="Copy headers">
                 <i class="fa-solid fa-copy"></i>
-                <span class="detail-tool-btn__label">Copy</span>
+                <span class="detail-tool-btn__label" data-i18n="detail.tools.copy">Copy</span>
               </button>
-              <button id="headers-wrap-btn" type="button" class="detail-tool-btn" data-target="detail-headers" aria-pressed="true" title="Toggle wrapping">
+              <button id="headers-wrap-btn" type="button" class="detail-tool-btn" data-target="detail-headers" aria-pressed="true" data-i18n-title="detail.tools.wrap" title="Toggle wrapping">
                 <i class="fa-solid fa-text-width"></i>
-                <span class="detail-tool-btn__label">Wrap</span>
+                <span class="detail-tool-btn__label" data-i18n="detail.tools.wrap">Wrap</span>
               </button>
             </div>
           </div>
@@ -209,19 +213,19 @@
         </div>
         <div class="detail-section">
           <div class="detail-section__bar">
-            <p class="text-xs uppercase tracking-wide text-muted mb-1 detail-section__title">Body</p>
+            <p class="text-xs uppercase tracking-wide text-muted mb-1 detail-section__title" data-i18n="detail.sections.body">Body</p>
             <div class="detail-section__actions">
-              <button id="body-format-toggle" type="button" class="detail-tool-btn" aria-pressed="true" title="Toggle raw/pretty" disabled>
+              <button id="body-format-toggle" type="button" class="detail-tool-btn" aria-pressed="true" data-i18n-title="detail.tools.pretty" title="Toggle raw/pretty" disabled>
                 <i class="fa-solid fa-code"></i>
-                <span class="detail-tool-btn__label">Pretty</span>
+                <span class="detail-tool-btn__label" data-i18n="detail.tools.pretty">Pretty</span>
               </button>
-              <button id="body-wrap-btn" type="button" class="detail-tool-btn" data-target="detail-body" aria-pressed="true" title="Toggle wrapping">
+              <button id="body-wrap-btn" type="button" class="detail-tool-btn" data-target="detail-body" aria-pressed="true" data-i18n-title="detail.tools.wrap" title="Toggle wrapping">
                 <i class="fa-solid fa-text-width"></i>
-                <span class="detail-tool-btn__label">Wrap</span>
+                <span class="detail-tool-btn__label" data-i18n="detail.tools.wrap">Wrap</span>
               </button>
-              <button id="body-copy-btn" type="button" class="detail-tool-btn" title="Copy body">
+              <button id="body-copy-btn" type="button" class="detail-tool-btn" data-i18n-title="detail.tools.copy" title="Copy body">
                 <i class="fa-solid fa-copy"></i>
-                <span class="detail-tool-btn__label">Copy</span>
+                <span class="detail-tool-btn__label" data-i18n="detail.tools.copy">Copy</span>
               </button>
             </div>
           </div>

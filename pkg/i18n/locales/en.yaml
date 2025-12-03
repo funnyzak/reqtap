@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "Request #%d  %s"
+  metadata:
+    remote: "Remote"
+    user_agent: "UA"
+    content_type: "Content-Type"
+    size: "Size"
+  headers:
+    redacted: "[REDACTED]"
+  body:
+    empty: "[Empty Body - %s]"
+    truncate_hint: "[Showing first %s of %s. Use --full-body or set output.body_view.full_body=true to view the full body]"
+    binary_summary: "[Binary Body: %s, %s. Content skipped.]"
+    hex_preview_title: "Hex preview (%s):"
+    hex_preview_truncate: "[Hex preview only shows the first %s]"
+    binary_saved: "[Binary saved to %s]"
+  json:
+    indent_skipped: "JSON body exceeds %s, pretty formatting skipped"
+  form:
+    title: "Form data:"
+    key_header: "Key"
+    value_header: "Value"

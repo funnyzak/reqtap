@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "リクエスト #%d  %s"
+  metadata:
+    remote: "リモート"
+    user_agent: "UA"
+    content_type: "コンテンツタイプ"
+    size: "サイズ"
+  headers:
+    redacted: "[非表示]"
+  body:
+    empty: "[空のボディ - %s]"
+    truncate_hint: "[最初の %s を表示（全 %s 中）。--full-body または output.body_view.full_body=true を使用して完全なボディを表示]"
+    binary_summary: "[バイナリボディ: %s, %s。コンテンツはスキップされました。]"
+    hex_preview_title: "16進数プレビュー (%s):"
+    hex_preview_truncate: "[16進数プレビューは最初の %s のみ表示]"
+    binary_saved: "[バイナリコンテンツを %s に保存]"
+  json:
+    indent_skipped: "JSON ボディが %s を超えているため、整形表示をスキップ"
+  form:
+    title: "フォームデータ:"
+    key_header: "キー"
+    value_header: "値"

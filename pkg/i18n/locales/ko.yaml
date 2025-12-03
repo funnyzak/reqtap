@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "요청 #%d  %s"
+  metadata:
+    remote: "원격"
+    user_agent: "UA"
+    content_type: "콘텐츠 타입"
+    size: "크기"
+  headers:
+    redacted: "[숨겨짐]"
+  body:
+    empty: "[빈 본문 - %s]"
+    truncate_hint: "[처음 %s 표시 (전체 %s 중). --full-body 또는 output.body_view.full_body=true 설정으로 전체 본문 보기]"
+    binary_summary: "[바이너리 본문: %s, %s. 내용 건너뜀.]"
+    hex_preview_title: "16진수 미리보기 (%s):"
+    hex_preview_truncate: "[16진수 미리보기는 처음 %s만 표시]"
+    binary_saved: "[바이너리 내용을 %s에 저장]"
+  json:
+    indent_skipped: "JSON 본문이 %s를 초과하여 들여쓰기 건너뜀"
+  form:
+    title: "폼 데이터:"
+    key_header: "키"
+    value_header: "값"

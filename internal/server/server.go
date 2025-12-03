@@ -19,6 +19,7 @@ import (
 	"github.com/funnyzak/reqtap/internal/printer"
 	"github.com/funnyzak/reqtap/internal/storage"
 	"github.com/funnyzak/reqtap/internal/web"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 )
 
 // Server HTTP server
@@ -40,10 +41,14 @@ type Server struct {
 func New(cfg *config.Config, log logger.Logger) (*Server, error) {
 	baseCtx, cancel := context.WithCancel(context.Background())
 	procWG := &sync.WaitGroup{}
+	translator, err := i18n.NewTranslator("en")
+	if err != nil {
+		return nil, err
+	}
 	// Create printer based on output configuration
 	var reqPrinter printer.Printer
 	if !cfg.Output.Silence {
-		reqPrinter = printer.New(strings.ToLower(cfg.Output.Mode), log, &cfg.Output)
+		reqPrinter = printer.New(strings.ToLower(cfg.Output.Mode), log, &cfg.Output, translator, cfg.Output.Locale)
 	}
 
 	// Create forwarder

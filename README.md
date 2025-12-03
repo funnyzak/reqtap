@@ -39,6 +39,7 @@ ReqTap 是一个跨平台、零外部依赖的 HTTP 请求捕获与调试平台�
 - **日志与审计**：支持 zerolog JSON 流 + lumberjack 文件滚动，`--silence` 与 `--json` 适配 CI/日志管线。
 - **跨平台友好**：Mac/Linux/Windows 官方预编译，亦可通过 Docker、Homebrew 或脚本一键安装。
 - **安全/可控**：所有外发 Header 均可黑白名单过滤，二进制体默认不打印，支持只读导出 API 以集成到现有监控面板。
+- **多语言体验**：CLI 可通过 `output.locale`/`--locale` 切换语言，Web 控制台默认按浏览器语言选择并支持下拉即时切换，内置英文、简体中文、日文、韩文、法文、俄文支持。
 
 ## 预览
 
@@ -198,6 +199,24 @@ go build -o reqtap ./cmd/reqtap
 - 一键导出当前视图为 JSON、CSV 或纯文本
 - 在控制台右上角切换暗色/亮色主题，偏好会自动保存在浏览器中
 - 登录页同样提供暗色/亮色主题切换，确保进入控制台前体验一致
+
+### 多语言支持
+
+- **CLI 输出**：通过 `output.locale` 或启动参数 `--locale` 指定终端语言，默认回退到英文；`go run cmd/reqtap --locale zh-CN` 可立即体验中文提示。
+- **Web 控制台**：`web.default_locale` 定义首次加载语言，`web.supported_locales` 决定下拉可选项。内置英文、简体中文、日文、韩文、法文、俄文翻译，支持在右上角语言菜单即时切换并记忆到浏览器。
+- **自定义扩展**：编辑 `internal/static/locales/*.json`（或构建后的同名资源）即可新增语言，使用前端专用的键结构，缺失条目会自动回退至英文，保证界面完整性。
+
+#### 多语言维护指南
+
+1. **命名规范**：
+   - CLI 侧使用 `pkg/i18n/locales/<lang>.yaml`（如 `en.yaml`, `zh-CN.yaml`），采用 `cli.*` 命名空间（如 `cli.summary.title`）。
+   - Web 侧使用 `internal/static/locales/<lang>.json`，使用前端专用的键结构（如 `detail.meta.request_id`）。
+   - 两个子系统使用不同的命名空间，避免直接混用。
+2. **新增语言**：
+   - 复制英文模板文件为新语言，补全需要的条目；CLI 若只需覆盖部分键，可删除未修改的条目，空缺会自动兜底英文。
+   - 在 `web.supported_locales` 与 `output.locale`/`web.default_locale` 中加入新语言代码（示例：`fr` 或 `fr-FR`）。
+3. **运行验证**：执行 `go test ./pkg/i18n ./internal/printer` 确保 CLI 词条无缺；构建静态资源或启动 `make dev`，在浏览器切换语言核验 UI。
+4. **提交前检查**：若移除了键名，请同步更新 README 里的“多语言支持”说明，避免遗漏维护指南。
 - 请求详情弹窗提供 Headers/Body 独立工具：可单独复制、切换换行/横向滚动，并在 JSON Raw/Pretty 视图间一键切换
 - 重新设计的布局将页面头部、统计卡片与筛选面板固定可视，仅主体列表区域滚动，长列表体验更佳
 - 管理员可对任一请求直接复制/下载 Request 报文、复制/下载固定 Response 报文，以及复制可直接重放的 cURL 命令

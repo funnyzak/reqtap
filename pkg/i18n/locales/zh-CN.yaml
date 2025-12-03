@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "请求 #%d  %s"
+  metadata:
+    remote: "来源"
+    user_agent: "UA"
+    content_type: "内容类型"
+    size: "大小"
+  headers:
+    redacted: "[已隐藏]"
+  body:
+    empty: "[空请求体 - %s]"
+    truncate_hint: "[仅展示前 %s（总计 %s）。使用 --full-body 或设置 output.body_view.full_body=true 查看完整正文]"
+    binary_summary: "[二进制请求体: %s, %s。内容已跳过。]"
+    hex_preview_title: "十六进制预览 (%s):"
+    hex_preview_truncate: "[十六进制预览仅展示前 %s]"
+    binary_saved: "[二进制内容已保存至 %s]"
+  json:
+    indent_skipped: "JSON 体超过 %s，已跳过缩进"
+  form:
+    title: "表单数据:"
+    key_header: "字段"
+    value_header: "值"

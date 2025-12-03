@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "app_title": "ReqTap · 实时请求监控",
+    "login_title": "ReqTap · 控制台登录"
+  },
+  "header": {
+    "title": "ReqTap 实时监控",
+    "tagline": "捕获并探索 HTTP 流量，支持实时筛选、导出与详情查看。",
+    "user": "用户",
+    "logout": "退出",
+    "language": "语言",
+    "theme": {
+      "light": "浅色",
+      "dark": "深色",
+      "switch_to": "切换到 {mode} 模式"
+    },
+    "ws": {
+      "connected": "在线",
+      "connecting": "连接中",
+      "error": "异常",
+      "offline": "离线"
+    },
+    "locale_label": {
+      "en": "English",
+      "zh-CN": "简体中文",
+      "ja": "日本語",
+      "ko": "한국어",
+      "fr": "Français",
+      "ru": "Русский"
+    }
+  },
+  "stats": {
+    "total": "请求总数",
+    "filtered": "筛选结果",
+    "export_title": "导出快照",
+    "export_hint": "JSON / CSV / 文本"
+  },
+  "export": {
+    "json": "JSON",
+    "csv": "CSV",
+    "txt": "文本"
+  },
+  "filters": {
+    "search_label": "搜索关键字",
+    "search_placeholder": "URL、查询、Header、客户端 IP...",
+    "method_label": "HTTP 方法",
+    "method_all": "全部",
+    "refresh": "刷新"
+  },
+  "table": {
+    "headers": {
+      "timestamp": "时间戳",
+      "method": "方法",
+      "path": "路径",
+      "client": "客户端 IP",
+      "agent": "User-Agent",
+      "size": "大小"
+    },
+    "empty": "暂未接收到数据，等待新的请求..."
+  },
+  "repo": {
+    "title": "仓库",
+    "author": "作者"
+  },
+  "detail": {
+    "overview": "概览",
+    "groups": {
+      "request": "请求",
+      "replay": "重放"
+    },
+    "actions": {
+      "download_request": "下载请求",
+      "copy_request": "复制请求",
+      "copy_curl": "复制 cURL 命令",
+      "status": {
+        "request_downloaded": "请求已下载",
+        "request_copied": "请求已复制",
+        "request_copy_failed": "复制请求失败",
+        "curl_copied": "cURL 命令已复制",
+        "curl_copy_failed": "复制 cURL 命令失败",
+        "headers_copied": "请求头已复制",
+        "headers_copy_failed": "复制请求头失败",
+        "body_copied": "正文已复制",
+        "body_copy_failed": "复制正文失败"
+      }
+    },
+    "sections": {
+      "headers": "请求头",
+      "body": "请求体"
+    },
+    "tools": {
+      "copy": "复制",
+      "wrap": "换行",
+      "scroll": "滚动",
+      "pretty": "美化",
+      "raw": "原文"
+    },
+    "meta": {
+      "request_id": "请求 ID",
+      "timestamp": "时间",
+      "method": "方法",
+      "body_size": "正文大小",
+      "content_type": "内容类型",
+      "client": "客户端",
+      "full_path": "完整路径",
+      "user_agent": "User-Agent"
+    },
+    "placeholders": {
+      "no_headers": "（无请求头）",
+      "empty_body": "（空请求体）",
+      "binary_body": "[二进制内容]",
+      "undecodable": "（无法解析正文）"
+    },
+    "status": {
+      "admin_required": "需要管理员权限",
+      "select_request": "请先选择一条请求"
+    }
+  },
+  "alerts": {
+    "export_disabled": "导出功能已禁用",
+    "export_admin_required": "需要管理员权限才能导出数据",
+    "export_forbidden": "无权导出数据",
+    "export_failed": "导出失败：{error}",
+    "unknown_error": "未知错误",
+    "admin_required": "需要管理员权限",
+    "request_failed": "请求失败"
+  },
+  "login": {
+    "title": "ReqTap 控制台",
+    "subtitle": "登录以管理实时请求监控。",
+    "username": "用户名",
+    "password": "密码",
+    "username_placeholder": "admin",
+    "password_placeholder": "••••••••",
+    "submit": "登录",
+    "message_failed": "登录失败"
+  }
+}

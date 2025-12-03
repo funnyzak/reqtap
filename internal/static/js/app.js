@@ -1,3 +1,5 @@
+import { createI18n } from './i18n.js';
+
 const CONFIG = window.__REQTAP__ || {};
 const API_BASE = CONFIG.apiBase || '/api';
 const WS_PATH = CONFIG.wsEndpoint || `${API_BASE}/ws`;
@@ -9,6 +11,11 @@ const ROLE_ADMIN = CONFIG.roleAdmin || 'admin';
 const ROLE_VIEWER = CONFIG.roleViewer || 'viewer';
 const THEME_STORAGE_KEY = 'reqtap-theme';
 const DEFAULT_THEME = 'dark';
+const i18n = createI18n({
+  defaultLocale: CONFIG.defaultLocale || 'en',
+  supportedLocales: CONFIG.supportedLocales || ['en'],
+  webBase: WEB_BASE,
+});
 
 const state = {
   requests: [],
@@ -17,12 +24,14 @@ const state = {
     method: '',
   },
   userRole: '',
+  locale: CONFIG.defaultLocale || 'en',
   activeRequest: null,
   activeRequestBody: '',
   theme: DEFAULT_THEME,
   detailBodyRaw: '',
   detailBodyPretty: '',
   detailBodyMode: 'raw',
+  wsStatus: 'connecting',
 };
 
 let ws;
@@ -57,6 +66,7 @@ const els = {
   themeToggle: document.getElementById('theme-toggle'),
   themeToggleLabel: document.getElementById('theme-toggle-label'),
   themeToggleIcon: document.getElementById('theme-toggle-icon'),
+  localeSelect: document.getElementById('locale-select'),
   headersCopyBtn: document.getElementById('headers-copy-btn'),
   headersWrapBtn: document.getElementById('headers-wrap-btn'),
   bodyCopyBtn: document.getElementById('body-copy-btn'),
@@ -84,9 +94,9 @@ function persistTheme(theme) {
 function updateThemeToggleUI(theme) {
   if (!els.themeToggle) return;
   const isLight = theme === 'light';
-  const nextThemeLabel = isLight ? 'Dark' : 'Light';
+  const nextThemeLabel = isLight ? i18n.t('header.theme.dark') : i18n.t('header.theme.light');
   els.themeToggle.setAttribute('aria-pressed', String(isLight));
-  els.themeToggle.setAttribute('title', `Switch to ${nextThemeLabel} mode`);
+  els.themeToggle.setAttribute('title', i18n.t('header.theme.switch_to', { mode: nextThemeLabel }));
   if (els.themeToggleLabel) {
     els.themeToggleLabel.textContent = nextThemeLabel;
   }
@@ -129,14 +139,14 @@ function escapeHtml(value) {
 
 function buildDetailMeta(item, fullPath, bodySize) {
   const entries = [
-    { label: 'Request ID', value: item.id || '-' },
-    { label: 'Timestamp', value: formatTime(item.timestamp) },
-    { label: 'Method', value: (item.method || '-').toUpperCase(), pill: 'method' },
-    { label: 'Body Size', value: bodySize, pill: 'metric' },
-    { label: 'Content-Type', value: item.content_type || '-' },
-    { label: 'Client', value: item.remote_addr || '-', mono: true },
-    { label: 'Full Path', value: fullPath, full: true, code: true },
-    { label: 'User-Agent', value: item.user_agent || '-', full: true, mono: true },
+    { label: i18n.t('detail.meta.request_id'), value: item.id || '-' },
+    { label: i18n.t('detail.meta.timestamp'), value: formatTime(item.timestamp) },
+    { label: i18n.t('detail.meta.method'), value: (item.method || '-').toUpperCase(), pill: 'method' },
+    { label: i18n.t('detail.meta.body_size'), value: bodySize, pill: 'metric' },
+    { label: i18n.t('detail.meta.content_type'), value: item.content_type || '-' },
+    { label: i18n.t('detail.meta.client'), value: item.remote_addr || '-', mono: true },
+    { label: i18n.t('detail.meta.full_path'), value: fullPath, full: true, code: true },
+    { label: i18n.t('detail.meta.user_agent'), value: item.user_agent || '-', full: true, mono: true },
   ];
 
   const markup = entries
@@ -186,7 +196,9 @@ function isBodyPlaceholder(text) {
   if (!text) {
     return true;
   }
-  return text === '(empty body)' || text.startsWith('[Binary payload]');
+  const emptyBody = i18n.t('detail.placeholders.empty_body');
+  const binaryLabel = i18n.t('detail.placeholders.binary_body');
+  return text === emptyBody || text.startsWith(binaryLabel);
 }
 
 function setWrapState(block, button, shouldWrap) {
@@ -204,7 +216,9 @@ function updateWrapButton(button, shouldWrap) {
   button.setAttribute('aria-pressed', String(shouldWrap));
   const label = button.querySelector('.detail-tool-btn__label');
   if (label) {
-    label.textContent = shouldWrap ? 'Wrap' : 'Scroll';
+    label.textContent = shouldWrap
+      ? i18n.t('detail.tools.wrap')
+      : i18n.t('detail.tools.scroll');
   }
 }
 
@@ -226,7 +240,7 @@ function updateBodyFormatToggle() {
   if (!hasPretty) {
     els.bodyFormatToggle.setAttribute('aria-pressed', 'false');
     if (label) {
-      label.textContent = 'Pretty';
+      label.textContent = i18n.t('detail.tools.pretty');
     }
     return;
   }
@@ -234,7 +248,7 @@ function updateBodyFormatToggle() {
   const isPretty = state.detailBodyMode === 'pretty';
   els.bodyFormatToggle.setAttribute('aria-pressed', String(isPretty));
   if (label) {
-    label.textContent = isPretty ? 'Raw' : 'Pretty';
+    label.textContent = isPretty ? i18n.t('detail.tools.raw') : i18n.t('detail.tools.pretty');
   }
 }
 
@@ -268,7 +282,7 @@ async function apiFetch(endpoint, options = {}) {
 
   if (!resp.ok) {
     const message = await resp.text();
-    throw new Error(message || 'Request failed');
+    throw new Error(message || i18n.t('alerts.request_failed'));
   }
 
   return resp;
@@ -295,12 +309,14 @@ function updateUIForRole(role, authEnabled) {
   // 如果认证未启用，允许所有操作
   const canExport = !authEnabled || role === ROLE_ADMIN;
   const exportButtons = els.exportBtns;
-  
+  const forbiddenText = i18n.t('alerts.export_forbidden');
+  const adminText = i18n.t('alerts.admin_required');
+
   if (els.exportSection) {
     if (!canExport) {
       els.exportSection.style.opacity = '0.5';
       els.exportSection.style.pointerEvents = 'none';
-      els.exportSection.title = 'You are not authorized to export data';
+      els.exportSection.title = forbiddenText;
     } else {
       els.exportSection.style.opacity = '1';
       els.exportSection.style.pointerEvents = 'auto';
@@ -325,7 +341,7 @@ function updateUIForRole(role, authEnabled) {
     if (!area) return;
     area.classList.toggle('admin-locked', !canExport);
     if (!canExport) {
-      area.setAttribute('title', 'Admin role required');
+      area.setAttribute('title', adminText);
     } else {
       area.removeAttribute('title');
     }
@@ -336,11 +352,14 @@ function updateUIForRole(role, authEnabled) {
     if (!btn) return;
     btn.disabled = !canExport;
     btn.setAttribute('aria-disabled', String(!canExport));
-    const label = btn.dataset.label || btn.getAttribute('aria-label') || '';
+    const labelKey = btn.getAttribute('data-i18n-title');
+    const label = labelKey ? i18n.t(labelKey) : btn.getAttribute('aria-label') || btn.dataset.label || '';
     if (!canExport) {
-      btn.title = 'Admin role required';
+      btn.title = adminText;
     } else if (label) {
       btn.title = label;
+    } else {
+      btn.removeAttribute('title');
     }
   });
 }
@@ -434,7 +453,7 @@ function openDetail(item) {
 
   const headersText = formatHeaders(item.headers || {});
   if (els.detailHeaders) {
-    els.detailHeaders.textContent = headersText || '(no headers)';
+    els.detailHeaders.textContent = headersText || i18n.t('detail.placeholders.no_headers');
     setWrapState(els.detailHeaders, els.headersWrapBtn, true);
   }
   const decodedBody = decodeBody(item);
@@ -466,11 +485,12 @@ function formatHeaders(headers) {
 
 function decodeBody(item) {
   if (!item.body || item.body.length === 0) {
-    return '(empty body)';
+    return i18n.t('detail.placeholders.empty_body');
   }
 
   if (item.is_binary) {
-    return `[Binary payload] ${formatSize(item.size || item.content_length || item.body.length)} `;
+    const binaryLabel = i18n.t('detail.placeholders.binary_body');
+    return `${binaryLabel} ${formatSize(item.size || item.content_length || item.body.length)} `;
   }
 
   try {
@@ -478,7 +498,7 @@ function decodeBody(item) {
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     return new TextDecoder().decode(bytes);
   } catch {
-    return '(Unable to decode body)';
+    return i18n.t('detail.placeholders.undecodable');
   }
 }
 
@@ -488,8 +508,9 @@ function canUseAdminActions() {
 
 function ensureAdminAction() {
   if (!canUseAdminActions()) {
-    setActionStatus('Admin role required', 'error');
-    alert('Admin role required');
+    const message = i18n.t('detail.status.admin_required');
+    setActionStatus(message, 'error');
+    alert(i18n.t('alerts.admin_required'));
     return false;
   }
   return true;
@@ -497,13 +518,14 @@ function ensureAdminAction() {
 
 function ensureActiveRequest() {
   if (!state.activeRequest) {
-    setActionStatus('Please select a request first', 'error');
+    setActionStatus(i18n.t('detail.status.select_request'), 'error');
     return null;
   }
   return state.activeRequest;
 }
 
 function updateWsStatus(status) {
+  state.wsStatus = status;
   if (!els.wsStatus) return;
   const indicator = els.wsStatus.querySelector('.indicator');
   const label = els.wsStatus.querySelector('.status-label');
@@ -512,19 +534,19 @@ function updateWsStatus(status) {
   switch (status) {
     case 'connected':
       indicator.className = 'indicator h-2 w-2 rounded-full bg-emerald-400';
-      label.textContent = 'Online';
+      label.textContent = i18n.t('header.ws.connected');
       break;
     case 'connecting':
       indicator.className = 'indicator h-2 w-2 rounded-full bg-yellow-400';
-      label.textContent = 'Connecting';
+      label.textContent = i18n.t('header.ws.connecting');
       break;
     case 'error':
       indicator.className = 'indicator h-2 w-2 rounded-full bg-rose-400';
-      label.textContent = 'Error';
+      label.textContent = i18n.t('header.ws.error');
       break;
     default:
       indicator.className = 'indicator h-2 w-2 rounded-full bg-red-400';
-      label.textContent = 'Offline';
+      label.textContent = i18n.t('header.ws.offline');
   }
 }
 
@@ -571,12 +593,12 @@ function scheduleReconnect() {
 
 async function handleExport(format) {
   if (!EXPORT_ENABLED) {
-    alert('Export feature is disabled');
+    alert(i18n.t('alerts.export_disabled'));
     return;
   }
   
   if (AUTH_ENABLED && state.userRole !== ROLE_ADMIN) {
-    alert('You need admin role to export data');
+    alert(i18n.t('alerts.export_admin_required'));
     return;
   }
   
@@ -594,7 +616,7 @@ async function handleExport(format) {
     
     if (resp.status === 403) {
       const text = await resp.text();
-      alert(text || 'You are not authorized to export data');
+      alert(text || i18n.t('alerts.export_forbidden'));
       return;
     }
     
@@ -609,10 +631,11 @@ async function handleExport(format) {
     window.URL.revokeObjectURL(url);
   } catch (error) {
     if (error.message && error.message.includes('403')) {
-      alert('You are not authorized to export data');
+      alert(i18n.t('alerts.export_forbidden'));
     } else {
       console.error('Export failed', error);
-      alert('Export failed: ' + (error.message || 'Unknown error'));
+      const fallback = error.message || i18n.t('alerts.unknown_error');
+      alert(i18n.t('alerts.export_failed', { error: fallback }));
     }
   }
 }
@@ -724,12 +747,13 @@ function buildRequestPayload(item, decodedBody) {
   }
   const requestLine = `${(item.method || 'GET').toUpperCase()} ${composeRequestPath(item)} HTTP/1.1`;
   const headerSection = formatHeadersText(item.headers || {});
-  const bodySection = item.body && item.body.length > 0 ? (decodedBody || '') : '(empty body)';
+  const emptyBodyLabel = i18n.t('detail.placeholders.empty_body');
+  const bodySection = item.body && item.body.length > 0 ? (decodedBody || '') : emptyBodyLabel;
   const parts = [requestLine];
   if (headerSection) {
     parts.push(headerSection);
   }
-  parts.push('', bodySection || '(empty body)');
+  parts.push('', bodySection || emptyBodyLabel);
   return parts.join('\n');
 }
 
@@ -759,7 +783,8 @@ function buildCurlCommand(item, decodedBody) {
 
   const headers = flattenHeaders(item.headers || {});
   const hasHeaders = headers.length > 0;
-  const hasBody = item.body && item.body.length > 0 && !item.is_binary && decodedBody && decodedBody !== '(Unable to decode body)';
+  const undecodableLabel = i18n.t('detail.placeholders.undecodable');
+  const hasBody = item.body && item.body.length > 0 && !item.is_binary && decodedBody && decodedBody !== undecodableLabel;
 
   // If it's a simple command (no headers and no body), return single line
   if (!hasHeaders && !hasBody) {
@@ -883,7 +908,7 @@ function handleRequestDownload() {
   if (!item) return;
   const payload = buildRequestPayload(item, state.activeRequestBody);
   downloadText(`reqtap-request-${item.id || 'payload'}.txt`, payload);
-  setActionStatus('Request downloaded');
+  setActionStatus(i18n.t('detail.actions.status.request_downloaded'));
 }
 
 async function handleRequestCopy() {
@@ -893,10 +918,10 @@ async function handleRequestCopy() {
   const payload = buildRequestPayload(item, state.activeRequestBody);
   try {
     await copyToClipboard(payload);
-    setActionStatus('Request copied');
+    setActionStatus(i18n.t('detail.actions.status.request_copied'));
   } catch (error) {
     console.error('Failed to copy request payload', error);
-    setActionStatus('Failed to copy request', 'error');
+    setActionStatus(i18n.t('detail.actions.status.request_copy_failed'), 'error');
   }
 }
 
@@ -907,10 +932,10 @@ async function handleCurlCopy() {
   if (!item) return;
   try {
     await copyToClipboard(buildCurlCommand(item, state.activeRequestBody));
-    setActionStatus('cURL command copied');
+    setActionStatus(i18n.t('detail.actions.status.curl_copied'));
   } catch (error) {
     console.error('Failed to copy curl command', error);
-    setActionStatus('Failed to copy cURL command', 'error');
+    setActionStatus(i18n.t('detail.actions.status.curl_copy_failed'), 'error');
   }
 }
 
@@ -918,10 +943,10 @@ async function handleHeadersCopy() {
   if (!els.detailHeaders) return;
   try {
     await copyToClipboard(els.detailHeaders.textContent || '');
-    setActionStatus('Headers copied');
+    setActionStatus(i18n.t('detail.actions.status.headers_copied'));
   } catch (error) {
     console.error('Failed to copy headers', error);
-    setActionStatus('Failed to copy headers', 'error');
+    setActionStatus(i18n.t('detail.actions.status.headers_copy_failed'), 'error');
   }
 }
 
@@ -929,10 +954,10 @@ async function handleBodyCopy() {
   if (!els.detailBody) return;
   try {
     await copyToClipboard(els.detailBody.textContent || '');
-    setActionStatus('Body copied');
+    setActionStatus(i18n.t('detail.actions.status.body_copied'));
   } catch (error) {
     console.error('Failed to copy body', error);
-    setActionStatus('Failed to copy body', 'error');
+    setActionStatus(i18n.t('detail.actions.status.body_copy_failed'), 'error');
   }
 }
 
@@ -944,12 +969,62 @@ function handleBodyFormatToggle() {
   renderDetailBody();
 }
 
+function initLocaleSelector() {
+  if (!els.localeSelect) {
+    return;
+  }
+  const locales = i18n.getSupportedLocales();
+  els.localeSelect.innerHTML = '';
+  locales.forEach((loc) => {
+    const option = document.createElement('option');
+    option.value = loc;
+    option.textContent = i18n.t(`header.locale_label.${loc}`) || loc;
+    els.localeSelect.appendChild(option);
+  });
+  els.localeSelect.value = i18n.getLocale();
+  els.localeSelect.addEventListener('change', async (event) => {
+    const next = event.target.value;
+    await i18n.setLocale(next);
+  });
+}
+
+function refreshLocaleUI() {
+  document.title = i18n.t('meta.app_title') || document.title;
+  updateThemeToggleUI(state.theme);
+  updateBodyFormatToggle();
+  if (els.detailHeaders) {
+    const shouldWrapHeaders = els.detailHeaders.classList.contains('code-block--wrap');
+    setWrapState(els.detailHeaders, els.headersWrapBtn, shouldWrapHeaders);
+  }
+  if (els.detailBody) {
+    const shouldWrapBody = els.detailBody.classList.contains('code-block--wrap');
+    setWrapState(els.detailBody, els.bodyWrapBtn, shouldWrapBody);
+  }
+  updateWsStatus(state.wsStatus || 'connecting');
+  if (els.localeSelect) {
+    Array.from(els.localeSelect.options).forEach((option) => {
+      option.textContent = i18n.t(`header.locale_label.${option.value}`) || option.value;
+    });
+  }
+}
+
 async function bootstrap() {
+  await i18n.init();
+  state.locale = i18n.getLocale();
+  document.title = i18n.t('meta.app_title') || document.title;
+  initLocaleSelector();
+  initTheme();
+  i18n.applyTranslations();
   await loadUser();
   await loadRequests();
   bindEvents();
   initWebsocket();
 }
 
-initTheme();
+i18n.onChange((locale) => {
+  state.locale = locale;
+  i18n.applyTranslations();
+  refreshLocaleUI();
+});
+
 bootstrap();

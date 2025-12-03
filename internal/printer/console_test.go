@@ -10,6 +10,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/funnyzak/reqtap/internal/config"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
@@ -25,8 +26,21 @@ func (noopLogger) Warn(string, ...interface{})  {}
 func (noopLogger) Error(string, ...interface{}) {}
 func (noopLogger) Fatal(string, ...interface{}) {}
 
+func testTranslator(t *testing.T) *i18n.Translator {
+	tr, err := i18n.NewTranslator("en")
+	if err != nil {
+		t.Fatalf("translator init failed: %v", err)
+	}
+	return tr
+}
+
+func newTestPrinter(t *testing.T, cfg *config.BodyViewConfig, locale string) *ConsolePrinter {
+	tr := testTranslator(t)
+	return NewConsolePrinter(noopLogger{}, cfg, tr, locale)
+}
+
 func TestConsolePrinter_PrintRequest(t *testing.T) {
-	p := NewConsolePrinter(noopLogger{}, nil)
+	p := newTestPrinter(t, nil, "en")
 	buf := &bytes.Buffer{}
 	p.out = buf
 	os.Setenv("REQTAP_TEST_WIDTH", "80")
@@ -58,6 +72,26 @@ func TestConsolePrinter_PrintRequest(t *testing.T) {
 	}
 }
 
+func TestConsolePrinter_PrintRequestChinese(t *testing.T) {
+	p := newTestPrinter(t, nil, "zh-CN")
+	buf := &bytes.Buffer{}
+	p.out = buf
+	requestTime := time.Now()
+	req := &request.RequestData{
+		Method:     "GET",
+		Path:       "/hello",
+		RemoteAddr: "127.0.0.1",
+		Timestamp:  requestTime,
+	}
+	if err := p.PrintRequest(req); err != nil {
+		t.Fatalf("print request failed: %v", err)
+	}
+	output := buf.String()
+	if !strings.Contains(output, "来源") {
+		t.Fatalf("expected zh-CN metadata label, got %s", output)
+	}
+}
+
 func TestConsolePrinter_JSONPretty(t *testing.T) {
 	cfg := config.BodyViewConfig{
 		Enable:          true,
@@ -68,7 +102,7 @@ func TestConsolePrinter_JSONPretty(t *testing.T) {
 			MaxIndentBytes: 1024,
 		},
 	}
-	p := NewConsolePrinter(noopLogger{}, &cfg)
+	p := newTestPrinter(t, &cfg, "en")
 	buf := &bytes.Buffer{}
 	p.out = buf
 	req := &request.RequestData{
@@ -95,7 +129,7 @@ func TestConsolePrinter_FormTable(t *testing.T) {
 			Enable: true,
 		},
 	}
-	p := NewConsolePrinter(noopLogger{}, &cfg)
+	p := newTestPrinter(t, &cfg, "en")
 	buf := &bytes.Buffer{}
 	p.out = buf
 	req := &request.RequestData{
@@ -120,7 +154,7 @@ func TestConsolePrinter_TruncationNotice(t *testing.T) {
 		Enable:          true,
 		MaxPreviewBytes: 8,
 	}
-	p := NewConsolePrinter(noopLogger{}, &cfg)
+	p := newTestPrinter(t, &cfg, "en")
 	buf := &bytes.Buffer{}
 	p.out = buf
 	req := &request.RequestData{
@@ -135,7 +169,7 @@ func TestConsolePrinter_TruncationNotice(t *testing.T) {
 		t.Fatalf("print request failed: %v", err)
 	}
 	output := buf.String()
-	if !strings.Contains(output, "仅展示前") {
+	if !strings.Contains(output, "Showing first") {
 		t.Fatalf("expected truncation notice, got %s", output)
 	}
 	if strings.Contains(output, "abcdef") {
@@ -154,7 +188,7 @@ func TestConsolePrinter_BinaryPreviewAndSave(t *testing.T) {
 			SaveDirectory:    tdir,
 		},
 	}
-	p := NewConsolePrinter(noopLogger{}, &cfg)
+	p := newTestPrinter(t, &cfg, "en")
 	buf := &bytes.Buffer{}
 	p.out = buf
 	req := &request.RequestData{
