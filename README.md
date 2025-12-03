@@ -205,6 +205,7 @@ go build -o reqtap ./cmd/reqtap
 - **CLI 输出**：通过 `output.locale` 或启动参数 `--locale` 指定终端语言，默认回退到英文；`go run cmd/reqtap --locale zh-CN` 可立即体验中文提示。
 - **Web 控制台**：`web.default_locale` 定义首次加载语言，`web.supported_locales` 决定下拉可选项。内置英文、简体中文、日文、韩文、法文、俄文翻译，支持在右上角语言菜单即时切换并记忆到浏览器。
 - **自定义扩展**：编辑 `internal/static/locales/*.json`（或构建后的同名资源）即可新增语言，使用前端专用的键结构，缺失条目会自动回退至英文，保证界面完整性。
+- **查看支持语言**：执行 `reqtap locales` 可打印当前版本 CLI 与 Web 控制台可用语言列表，并提示对应配置键位。
 
 #### 支持语言与配置方式
 

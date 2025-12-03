@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/server"
+	"github.com/funnyzak/reqtap/internal/static"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -51,6 +54,12 @@ This includes examples for:
 - Production deployment
 `,
 	Run: showExamples,
+}
+
+var localesCmd = &cobra.Command{
+	Use:   "locales",
+	Short: "List supported locales for CLI and web console",
+	RunE:  showLocales,
 }
 
 func init() {
@@ -97,6 +106,7 @@ func init() {
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(examplesCmd)
+	rootCmd.AddCommand(localesCmd)
 }
 
 func bindFlags(cmd *cobra.Command) {
@@ -372,6 +382,10 @@ Development Debugging
     --web-auth-enable \
     --web-export-enable
 
+Localization
+  # Switch CLI output to Simplified Chinese immediately
+  reqtap --locale zh-CN
+
 Common Scenario Examples
 
   1. API Development Debugging
@@ -406,6 +420,69 @@ Tips
   - For more configuration options, refer to the configuration file documentation`
 
 	fmt.Println(examples)
+}
+
+func showLocales(cmd *cobra.Command, args []string) error {
+	cliLocales, err := listCLILocales()
+	if err != nil {
+		return fmt.Errorf("load CLI locales: %w", err)
+	}
+	webLocales, err := listWebLocales()
+	if err != nil {
+		return fmt.Errorf("load web locales: %w", err)
+	}
+
+	fmt.Println("CLI locales:")
+	printLocaleLines(cliLocales)
+	fmt.Println()
+	fmt.Println("Web locales:")
+	printLocaleLines(webLocales)
+	fmt.Println()
+	fmt.Println("Configure via:")
+	fmt.Println("  - CLI: output.locale or --locale")
+	fmt.Println("  - Web: web.default_locale & web.supported_locales")
+	return nil
+}
+
+func listCLILocales() ([]string, error) {
+	tr, err := i18n.NewTranslator("en")
+	if err != nil {
+		return nil, err
+	}
+	return tr.Supported(), nil
+}
+
+func listWebLocales() ([]string, error) {
+	entries, err := static.Assets.ReadDir("locales")
+	if err != nil {
+		return nil, err
+	}
+	locales := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".json") {
+			name = strings.TrimSuffix(name, ".json")
+		}
+		if name == "" {
+			continue
+		}
+		locales = append(locales, name)
+	}
+	sort.Strings(locales)
+	return locales, nil
+}
+
+func printLocaleLines(locales []string) {
+	if len(locales) == 0 {
+		fmt.Println("  (none)")
+		return
+	}
+	for _, loc := range locales {
+		fmt.Printf("  - %s\n", loc)
+	}
 }
 
 func printStartupBanner(cfg *config.Config, log logger.Logger) {

@@ -206,6 +206,7 @@ ReqTap ships with a zero-dependency web console that is enabled by default. Once
 - **CLI output** – set `output.locale` (or pass `--locale en/zh-CN` at startup) to switch terminal language. Missing translations automatically fall back to English.
 - **Web dashboard** – control the initial language via `web.default_locale` and expose multiple options through `web.supported_locales`. The top-right selector lets users switch instantly without reloading, and the choice is stored in `localStorage`.
 - **Custom languages** – drop an additional `locales/<lang>.json` file under `internal/static/locales` (or the extracted static assets) using frontend-specific key structures. Only the differing strings are required—any gaps fall back to English so the UI remains complete.
+- **Inspect locales** – run `reqtap locales` to print the currently bundled CLI and web locales along with the relevant configuration keys.
 
 #### Supported Languages and Configuration
 
