@@ -49,7 +49,7 @@ ReqTap 是一个跨平台、零外部依赖的 HTTP 请求捕获与调试平台�
 
 ### 实时控制台
 
-![实时控制台](https://github.com/user-attachments/assets/a7a4d8b5-ce4e-40aa-8356-3f5cb6633ade)
+![实时控制台](https://github.com/user-attachments/assets/37e5ef29-8b9f-4f60-a84c-7f8e20f5ec4b)
 
 ![实时控制台](https://github.com/user-attachments/assets/524c95c0-649c-4558-bf6c-756a6cd42e10)
 
