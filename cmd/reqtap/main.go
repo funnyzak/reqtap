@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
 	"github.com/funnyzak/reqtap/internal/server"
+	"github.com/funnyzak/reqtap/internal/static"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -53,6 +56,12 @@ This includes examples for:
 	Run: showExamples,
 }
 
+var localesCmd = &cobra.Command{
+	Use:   "locales",
+	Short: "List supported locales for CLI and web console",
+	RunE:  showLocales,
+}
+
 func init() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Configuration file path")
@@ -69,6 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceP("forward-url", "f", []string{}, "Target URLs to forward")
 	rootCmd.PersistentFlags().Bool("silence", false, "Suppress interactive console output")
 	rootCmd.PersistentFlags().Bool("json", false, "Emit structured JSON output")
+	rootCmd.PersistentFlags().String("locale", "", "Output locale (e.g. en, zh-CN)")
 	rootCmd.PersistentFlags().Bool("body-view", false, "Enable structured body formatting in console mode")
 	rootCmd.PersistentFlags().Int("body-preview-bytes", 0, "Maximum bytes to preview before truncating console body output")
 	rootCmd.PersistentFlags().Bool("full-body", false, "Always print full request bodies, ignoring preview limits")
@@ -96,6 +106,7 @@ func init() {
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(examplesCmd)
+	rootCmd.AddCommand(localesCmd)
 }
 
 func bindFlags(cmd *cobra.Command) {
@@ -110,6 +121,7 @@ func bindFlags(cmd *cobra.Command) {
 	viper.BindPFlag("log.file_logging.max_age_days", cmd.Flags().Lookup("log-file-max-age"))
 	viper.BindPFlag("log.file_logging.compress", cmd.Flags().Lookup("log-file-compress"))
 	viper.BindPFlag("forward.urls", cmd.Flags().Lookup("forward-url"))
+	viper.BindPFlag("output.locale", cmd.Flags().Lookup("locale"))
 
 	// Web console configuration bindings
 	viper.BindPFlag("web.enable", cmd.Flags().Lookup("web-enable"))
@@ -180,6 +192,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 	if forwardURLs, err := cmd.Flags().GetStringSlice("forward-url"); err == nil && len(forwardURLs) > 0 {
 		cfg.Forward.URLs = forwardURLs
+	}
+	if locale, err := cmd.Flags().GetString("locale"); err == nil && strings.TrimSpace(locale) != "" {
+		cfg.Output.Locale = strings.TrimSpace(locale)
 	}
 
 	// Override with web console command line arguments (command line has highest priority)
@@ -367,6 +382,10 @@ Development Debugging
     --web-auth-enable \
     --web-export-enable
 
+Localization
+  # Switch CLI output to Simplified Chinese immediately
+  reqtap --locale zh-CN
+
 Common Scenario Examples
 
   1. API Development Debugging
@@ -401,6 +420,69 @@ Tips
   - For more configuration options, refer to the configuration file documentation`
 
 	fmt.Println(examples)
+}
+
+func showLocales(cmd *cobra.Command, args []string) error {
+	cliLocales, err := listCLILocales()
+	if err != nil {
+		return fmt.Errorf("load CLI locales: %w", err)
+	}
+	webLocales, err := listWebLocales()
+	if err != nil {
+		return fmt.Errorf("load web locales: %w", err)
+	}
+
+	fmt.Println("CLI locales:")
+	printLocaleLines(cliLocales)
+	fmt.Println()
+	fmt.Println("Web locales:")
+	printLocaleLines(webLocales)
+	fmt.Println()
+	fmt.Println("Configure via:")
+	fmt.Println("  - CLI: output.locale or --locale")
+	fmt.Println("  - Web: web.default_locale & web.supported_locales")
+	return nil
+}
+
+func listCLILocales() ([]string, error) {
+	tr, err := i18n.NewTranslator("en")
+	if err != nil {
+		return nil, err
+	}
+	return tr.Supported(), nil
+}
+
+func listWebLocales() ([]string, error) {
+	entries, err := static.Assets.ReadDir("locales")
+	if err != nil {
+		return nil, err
+	}
+	locales := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".json") {
+			name = strings.TrimSuffix(name, ".json")
+		}
+		if name == "" {
+			continue
+		}
+		locales = append(locales, name)
+	}
+	sort.Strings(locales)
+	return locales, nil
+}
+
+func printLocaleLines(locales []string) {
+	if len(locales) == 0 {
+		fmt.Println("  (none)")
+		return
+	}
+	for _, loc := range locales {
+		fmt.Printf("  - %s\n", loc)
+	}
 }
 
 func printStartupBanner(cfg *config.Config, log logger.Logger) {
@@ -496,6 +578,11 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 	}
 
 	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("🌐 CLI Locale:    %s", formatLocaleValue(cfg.Output.Locale)))
+	lines = append(lines, fmt.Sprintf("   └─ Web default: %s", formatLocaleValue(cfg.Web.DefaultLocale)))
+	lines = append(lines, fmt.Sprintf("   └─ Web locales: %s", formatLocaleList(cfg.Web.SupportedLocales)))
+
+	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("💽 Storage:        %s", strings.ToLower(cfg.Storage.Driver)))
 	lines = append(lines, fmt.Sprintf("   └─ Path:       %s", cfg.Storage.Path))
 	if cfg.Storage.MaxRecords > 0 {
@@ -574,6 +661,9 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		"web_admin_path", cfg.Web.AdminPath,
 		"web_auth", cfg.Web.Auth.Enable,
 		"web_export", cfg.Web.Export.Enable,
+		"output_locale", cfg.Output.Locale,
+		"web_default_locale", cfg.Web.DefaultLocale,
+		"web_supported_locales", cfg.Web.SupportedLocales,
 	)
 }
 
@@ -635,6 +725,32 @@ func formatPathStrategySummary(cfg *config.Config) string {
 	}
 }
 
+func formatLocaleValue(locale string) string {
+	trimmed := strings.TrimSpace(locale)
+	if trimmed == "" {
+		return "auto"
+	}
+	return trimmed
+}
+
+func formatLocaleList(locales []string) string {
+	if len(locales) == 0 {
+		return "not configured"
+	}
+	result := make([]string, 0, len(locales))
+	for _, loc := range locales {
+		trimmed := strings.TrimSpace(loc)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	if len(result) == 0 {
+		return "not configured"
+	}
+	return strings.Join(result, ", ")
+}
+
 func logStartupSummary(cfg *config.Config, log logger.Logger) {
 	mode := strings.ToLower(cfg.Output.Mode)
 	var responseNames []string
@@ -649,6 +765,9 @@ func logStartupSummary(cfg *config.Config, log logger.Logger) {
 		"path_strategy", formatPathStrategySummary(cfg),
 		"output_mode", mode,
 		"silence", cfg.Output.Silence,
+		"output_locale", cfg.Output.Locale,
+		"web_default_locale", cfg.Web.DefaultLocale,
+		"web_supported_locales", cfg.Web.SupportedLocales,
 		"storage_driver", cfg.Storage.Driver,
 		"storage_path", cfg.Storage.Path,
 		"storage_max_records", cfg.Storage.MaxRecords,

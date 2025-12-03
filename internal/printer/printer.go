@@ -5,6 +5,7 @@ import (
 
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	"github.com/funnyzak/reqtap/pkg/request"
 )
 
@@ -20,7 +21,7 @@ func nextRequestNumber() uint64 {
 }
 
 // New 创建指定模式的 Printer
-func New(mode string, log logger.Logger, cfg *config.OutputConfig) Printer {
+func New(mode string, log logger.Logger, cfg *config.OutputConfig, translator *i18n.Translator, locale string) Printer {
 	if cfg == nil {
 		cfg = &config.OutputConfig{}
 	}
@@ -28,6 +29,6 @@ func New(mode string, log logger.Logger, cfg *config.OutputConfig) Printer {
 	case "json":
 		return NewJSONPrinter(log)
 	default:
-		return NewConsolePrinter(log, &cfg.BodyView)
+		return NewConsolePrinter(log, &cfg.BodyView, translator, locale)
 	}
 }

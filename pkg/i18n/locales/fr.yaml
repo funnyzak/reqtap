@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "Requête #%d  %s"
+  metadata:
+    remote: "Distant"
+    user_agent: "UA"
+    content_type: "Type de contenu"
+    size: "Taille"
+  headers:
+    redacted: "[MASQUÉ]"
+  body:
+    empty: "[Corps vide - %s]"
+    truncate_hint: "[Affichage des premiers %s sur %s. Utilisez --full-body ou définissez output.body_view.full_body=true pour voir le corps complet]"
+    binary_summary: "[Corps binaire : %s, %s. Contenu ignoré.]"
+    hex_preview_title: "Aperçu hexadécimal (%s) :"
+    hex_preview_truncate: "[L'aperçu hexadécimal n'affiche que les premiers %s]"
+    binary_saved: "[Contenu binaire sauvegardé dans %s]"
+  json:
+    indent_skipped: "Le corps JSON dépasse %s, mise en forme ignorée"
+  form:
+    title: "Données du formulaire :"
+    key_header: "Clé"
+    value_header: "Valeur"

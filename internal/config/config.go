@@ -92,12 +92,14 @@ type ForwardRewriteRuleConfig struct {
 
 // WebConfig web console configuration
 type WebConfig struct {
-	Enable      bool            `yaml:"enable" mapstructure:"enable"`
-	Path        string          `yaml:"path" mapstructure:"path"`
-	AdminPath   string          `yaml:"admin_path" mapstructure:"admin_path"`
-	MaxRequests int             `yaml:"max_requests" mapstructure:"max_requests"`
-	Auth        WebAuthConfig   `yaml:"auth" mapstructure:"auth"`
-	Export      WebExportConfig `yaml:"export" mapstructure:"export"`
+	Enable           bool            `yaml:"enable" mapstructure:"enable"`
+	Path             string          `yaml:"path" mapstructure:"path"`
+	AdminPath        string          `yaml:"admin_path" mapstructure:"admin_path"`
+	MaxRequests      int             `yaml:"max_requests" mapstructure:"max_requests"`
+	DefaultLocale    string          `yaml:"default_locale" mapstructure:"default_locale"`
+	SupportedLocales []string        `yaml:"supported_locales" mapstructure:"supported_locales"`
+	Auth             WebAuthConfig   `yaml:"auth" mapstructure:"auth"`
+	Export           WebExportConfig `yaml:"export" mapstructure:"export"`
 }
 
 // WebAuthConfig authentication configuration
@@ -124,6 +126,7 @@ type WebExportConfig struct {
 type OutputConfig struct {
 	Mode     string         `yaml:"mode" mapstructure:"mode"`
 	Silence  bool           `yaml:"silence" mapstructure:"silence"`
+	Locale   string         `yaml:"locale" mapstructure:"locale"`
 	BodyView BodyViewConfig `yaml:"body_view" mapstructure:"body_view"`
 }
 
@@ -465,6 +468,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("web.path", "/web")
 	v.SetDefault("web.admin_path", "/api")
 	v.SetDefault("web.max_requests", 500)
+	v.SetDefault("web.default_locale", "en")
+	v.SetDefault("web.supported_locales", []string{"en", "zh-CN", "ja", "ko", "fr", "ru"})
 	v.SetDefault("web.auth.enable", true)
 	v.SetDefault("web.auth.session_timeout", "24h")
 	v.SetDefault("web.auth.users", []map[string]string{
@@ -477,6 +482,7 @@ func setDefaults(v *viper.Viper) {
 	// Output defaults
 	v.SetDefault("output.mode", "console")
 	v.SetDefault("output.silence", false)
+	v.SetDefault("output.locale", "en")
 	v.SetDefault("output.body_view.enable", false)
 	v.SetDefault("output.body_view.max_preview_bytes", int(32*1024))
 	v.SetDefault("output.body_view.full_body", false)
@@ -564,6 +570,10 @@ func (c *Config) Validate() error {
 	}
 	if c.Storage.Retention < 0 {
 		return fmt.Errorf("storage retention cannot be negative")
+	}
+
+	if strings.TrimSpace(c.Output.Locale) == "" {
+		c.Output.Locale = "en"
 	}
 
 	// Validate log level
@@ -687,6 +697,17 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if strings.TrimSpace(c.Web.DefaultLocale) == "" {
+		c.Web.DefaultLocale = "en"
+	}
+	c.Web.SupportedLocales = normalizeLocaleList(c.Web.SupportedLocales)
+	if len(c.Web.SupportedLocales) == 0 {
+		c.Web.SupportedLocales = []string{"en"}
+	}
+	if !containsLocale(c.Web.SupportedLocales, c.Web.DefaultLocale) {
+		c.Web.SupportedLocales = append(c.Web.SupportedLocales, c.Web.DefaultLocale)
+	}
+
 	return nil
 }
 
@@ -735,4 +756,35 @@ func normalizeHeaderList(list []string) []string {
 		result = append(result, norm)
 	}
 	return result
+}
+
+func normalizeLocaleList(locales []string) []string {
+	if len(locales) == 0 {
+		return locales
+	}
+	set := make(map[string]struct{}, len(locales))
+	result := make([]string, 0, len(locales))
+	for _, loc := range locales {
+		norm := strings.TrimSpace(loc)
+		if norm == "" {
+			continue
+		}
+		key := strings.ToLower(norm)
+		if _, exists := set[key]; exists {
+			continue
+		}
+		set[key] = struct{}{}
+		result = append(result, norm)
+	}
+	return result
+}
+
+func containsLocale(locales []string, target string) bool {
+	targetKey := strings.ToLower(strings.TrimSpace(target))
+	for _, loc := range locales {
+		if strings.ToLower(strings.TrimSpace(loc)) == targetKey {
+			return true
+		}
+	}
+	return false
 }

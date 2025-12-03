@@ -18,6 +18,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/funnyzak/reqtap/internal/config"
 	"github.com/funnyzak/reqtap/internal/logger"
+	"github.com/funnyzak/reqtap/pkg/i18n"
 	"github.com/funnyzak/reqtap/pkg/request"
 	"golang.org/x/term"
 )
@@ -68,6 +69,8 @@ type ConsolePrinter struct {
 	formatter   *bodyFormatter
 	bodyView    config.BodyViewConfig
 	promptMu    sync.Mutex
+	translator  *i18n.Translator
+	locale      string
 }
 
 // getTerminalWidth gets the current terminal width with fallback
@@ -142,18 +145,31 @@ func (p *ConsolePrinter) wrapText(text string, maxWidth int) []string {
 }
 
 // NewConsolePrinter creates a new console printer
-func NewConsolePrinter(log logger.Logger, viewCfg *config.BodyViewConfig) *ConsolePrinter {
+func NewConsolePrinter(log logger.Logger, viewCfg *config.BodyViewConfig, translator *i18n.Translator, locale string) *ConsolePrinter {
 	var cfg config.BodyViewConfig
 	if viewCfg != nil {
 		cfg = *viewCfg
+	}
+	resolvedLocale := strings.TrimSpace(locale)
+	if resolvedLocale == "" && translator != nil {
+		resolvedLocale = translator.DefaultLocale()
 	}
 	return &ConsolePrinter{
 		colorScheme: NewColorScheme(),
 		logger:      log,
 		out:         os.Stdout,
-		formatter:   newBodyFormatter(&cfg, log),
+		formatter:   newBodyFormatter(&cfg, log, translator, resolvedLocale),
 		bodyView:    cfg,
+		translator:  translator,
+		locale:      resolvedLocale,
 	}
+}
+
+func (p *ConsolePrinter) t(key string) string {
+	if p == nil || p.translator == nil {
+		return key
+	}
+	return p.translator.Text(p.locale, key)
 }
 
 // PrintRequest prints request information using raw HTTP message layout
@@ -178,7 +194,7 @@ func (p *ConsolePrinter) printSummary(builder *strings.Builder, requestNum uint6
 	separator := p.buildSeparator(width)
 	builder.WriteString(p.colorScheme.Separator.Sprint(separator))
 	builder.WriteString("\n")
-	builder.WriteString(p.colorScheme.Separator.Sprintf("Request #%d  %s\n", requestNum, timestamp))
+	builder.WriteString(p.colorScheme.Separator.Sprintf(p.t(keySummaryTitle)+"\n", requestNum, timestamp))
 	p.printMetadataLine(builder, data)
 	builder.WriteString(p.colorScheme.Separator.Sprint(separator))
 	builder.WriteString("\n\n")
@@ -206,24 +222,28 @@ func (p *ConsolePrinter) printMetadataLine(builder *strings.Builder, data *reque
 
 	if data.RemoteAddr != "" {
 		addSep()
-		builder.WriteString("Remote: ")
+		builder.WriteString(p.t(keyMetadataRemote))
+		builder.WriteString(": ")
 		builder.WriteString(p.colorScheme.RemoteAddr.Sprint(data.RemoteAddr))
 	}
 
 	if data.UserAgent != "" {
 		addSep()
-		builder.WriteString("UA: ")
+		builder.WriteString(p.t(keyMetadataUserAgent))
+		builder.WriteString(": ")
 		builder.WriteString(p.colorScheme.BodyContent.Sprint(data.UserAgent))
 	}
 
 	if data.ContentType != "" {
 		addSep()
-		builder.WriteString("Content-Type: ")
+		builder.WriteString(p.t(keyMetadataContentType))
+		builder.WriteString(": ")
 		builder.WriteString(p.colorScheme.HeaderValue.Sprint(data.ContentType))
 	}
 
 	addSep()
-	builder.WriteString("Size: ")
+	builder.WriteString(p.t(keyMetadataSize))
+	builder.WriteString(": ")
 	builder.WriteString(p.colorScheme.BodyContent.Sprint(humanize.Bytes(uint64(len(data.Body)))))
 	builder.WriteString("\n")
 }
@@ -279,7 +299,7 @@ func (p *ConsolePrinter) printHeaders(builder *strings.Builder, headers http.Hea
 		displayValue := strings.Join(values, ", ")
 
 		if p.isSensitiveHeader(lowerKey) {
-			displayValue = "[REDACTED]"
+			displayValue = p.t(keyHeadersRedacted)
 		}
 
 		p.printHeaderLine(builder, key, displayValue, width)
@@ -316,7 +336,7 @@ func (p *ConsolePrinter) printBody(builder *strings.Builder, data *request.Reque
 	bodySize := humanize.Bytes(uint64(len(data.Body)))
 
 	if len(data.Body) == 0 {
-		builder.WriteString(p.colorScheme.BodyContent.Sprintf("[Empty Body - %s]", bodySize))
+		builder.WriteString(p.colorScheme.BodyContent.Sprintf(p.t(keyBodyEmpty), bodySize))
 		builder.WriteString("\n")
 		return
 	}
@@ -349,7 +369,7 @@ func (p *ConsolePrinter) printBody(builder *strings.Builder, data *request.Reque
 	}
 
 	if shouldTruncate {
-		builder.WriteString(p.colorScheme.TruncateNotice.Sprintf("[仅展示前 %s（总计 %s）。使用 --full-body 或设置 output.body_view.full_body=true 查看完整正文]", humanize.Bytes(uint64(previewLimit)), bodySize))
+		builder.WriteString(p.colorScheme.TruncateNotice.Sprintf(p.t(keyBodyTruncate), humanize.Bytes(uint64(previewLimit)), bodySize))
 		builder.WriteString("\n")
 	}
 }
@@ -368,7 +388,7 @@ func (p *ConsolePrinter) printBodyContent(builder *strings.Builder, content stri
 }
 
 func (p *ConsolePrinter) printBinaryBody(builder *strings.Builder, data *request.RequestData, bodySize string) {
-	builder.WriteString(p.colorScheme.BinaryNotice.Sprintf("[Binary Body: %s, %s. Content skipped.]", data.ContentType, bodySize))
+	builder.WriteString(p.colorScheme.BinaryNotice.Sprintf(p.t(keyBodyBinarySummary), data.ContentType, bodySize))
 	builder.WriteString("\n")
 	if !p.bodyView.Enable {
 		return
@@ -382,10 +402,11 @@ func (p *ConsolePrinter) printBinaryBody(builder *strings.Builder, data *request
 			preview = preview[:limit]
 			truncated = true
 		}
-		builder.WriteString(p.colorScheme.BodyContent.Sprintf("Hex preview (%s):\n", humanize.Bytes(uint64(len(preview)))))
+		builder.WriteString(p.colorScheme.BodyContent.Sprintf(p.t(keyBodyHexTitle)+"\n", humanize.Bytes(uint64(len(preview)))))
 		builder.WriteString(p.colorScheme.BodyContent.Sprint(hex.Dump(preview)))
 		if truncated {
-			builder.WriteString(p.colorScheme.TruncateNotice.Sprintf("[十六进制预览仅展示前 %s]\n", humanize.Bytes(uint64(limit))))
+			builder.WriteString(p.colorScheme.TruncateNotice.Sprintf(p.t(keyBodyHexTruncate), humanize.Bytes(uint64(limit))))
+			builder.WriteString("\n")
 		}
 	}
 
@@ -395,7 +416,7 @@ func (p *ConsolePrinter) printBinaryBody(builder *strings.Builder, data *request
 				p.logger.Warn("failed to persist binary body", "error", err, "request_id", data.ID)
 			}
 		} else if path != "" {
-			builder.WriteString(p.colorScheme.BodyContent.Sprintf("[Binary saved to %s]\n", path))
+			builder.WriteString(p.colorScheme.BodyContent.Sprintf(p.t(keyBodyBinarySaved)+"\n", path))
 		}
 	}
 }

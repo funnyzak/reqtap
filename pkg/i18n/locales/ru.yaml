@@ -1,0 +1,23 @@
+cli:
+  summary:
+    title: "Запрос #%d  %s"
+  metadata:
+    remote: "Удаленный"
+    user_agent: "UA"
+    content_type: "Тип содержимого"
+    size: "Размер"
+  headers:
+    redacted: "[СКРЫТО]"
+  body:
+    empty: "[Пустое тело - %s]"
+    truncate_hint: "[Показ первых %s из %s. Используйте --full-body или установите output.body_view.full_body=true для просмотра полного тела]"
+    binary_summary: "[Двоичное тело: %s, %s. Содержимое пропущено.]"
+    hex_preview_title: "16-ричный предпросмотр (%s):"
+    hex_preview_truncate: "[16-ричный предпросмотр показывает только первые %s]"
+    binary_saved: "[Двоичное содержимое сохранено в %s]"
+  json:
+    indent_skipped: "Тело JSON превышает %s, форматирование пропущено"
+  form:
+    title: "Данные формы:"
+    key_header: "Ключ"
+    value_header: "Значение"

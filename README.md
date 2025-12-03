@@ -39,6 +39,7 @@ ReqTap 是一个跨平台、零外部依赖的 HTTP 请求捕获与调试平台�
 - **日志与审计**：支持 zerolog JSON 流 + lumberjack 文件滚动，`--silence` 与 `--json` 适配 CI/日志管线。
 - **跨平台友好**：Mac/Linux/Windows 官方预编译，亦可通过 Docker、Homebrew 或脚本一键安装。
 - **安全/可控**：所有外发 Header 均可黑白名单过滤，二进制体默认不打印，支持只读导出 API 以集成到现有监控面板。
+- **多语言体验**：CLI 可通过 `output.locale`/`--locale` 切换语言，Web 控制台默认按浏览器语言选择并支持下拉即时切换，内置英文、简体中文、日文、韩文、法文、俄文支持。
 
 ## 预览
 
@@ -198,6 +199,49 @@ go build -o reqtap ./cmd/reqtap
 - 一键导出当前视图为 JSON、CSV 或纯文本
 - 在控制台右上角切换暗色/亮色主题，偏好会自动保存在浏览器中
 - 登录页同样提供暗色/亮色主题切换，确保进入控制台前体验一致
+
+### 多语言支持
+
+- **CLI 输出**：通过 `output.locale` 或启动参数 `--locale` 指定终端语言，默认回退到英文；`go run cmd/reqtap --locale zh-CN` 可立即体验中文提示。
+- **Web 控制台**：`web.default_locale` 定义首次加载语言，`web.supported_locales` 决定下拉可选项。内置英文、简体中文、日文、韩文、法文、俄文翻译，支持在右上角语言菜单即时切换并记忆到浏览器。
+- **自定义扩展**：编辑 `internal/static/locales/*.json`（或构建后的同名资源）即可新增语言，使用前端专用的键结构，缺失条目会自动回退至英文，保证界面完整性。
+- **查看支持语言**：执行 `reqtap locales` 可打印当前版本 CLI 与 Web 控制台可用语言列表，并提示对应配置键位。
+
+#### 支持语言与配置方式
+
+当前二进制内置 `en`、`zh-CN`、`ja`、`ko`、`fr`、`ru` 六种语言，CLI 与 Web 控制台共用同一组翻译目录。常见配置入口如下：
+
+| 组件 | 配置入口 | 默认值 | 说明 |
+| ---- | -------- | ------ | ---- |
+| CLI 输出 | `output.locale` / `--locale` | `en` | 启动后立即切换终端提示语言，可随时通过命令行覆盖配置文件。 |
+| Web 默认语言 | `web.default_locale` | `en` | 控制网页首次渲染时使用的语言，若浏览器偏好匹配受支持语言则会自动覆盖。 |
+| Web 可选语言 | `web.supported_locales` | `[en, zh-CN, ja, ko, fr, ru]` | 决定语言下拉框中出现的列表。 |
+
+示例配置：
+
+```yaml
+output:
+  locale: "zh-CN"
+
+web:
+  default_locale: "zh-CN"
+  supported_locales:
+    - zh-CN
+    - en
+    - ja
+```
+
+#### 多语言维护指南
+
+1. **命名规范**：
+   - CLI 侧使用 `pkg/i18n/locales/<lang>.yaml`（如 `en.yaml`, `zh-CN.yaml`），采用 `cli.*` 命名空间（如 `cli.summary.title`）。
+   - Web 侧使用 `internal/static/locales/<lang>.json`，使用前端专用的键结构（如 `detail.meta.request_id`）。
+   - 两个子系统使用不同的命名空间，避免直接混用。
+2. **新增语言**：
+   - 复制英文模板文件为新语言，补全需要的条目；CLI 若只需覆盖部分键，可删除未修改的条目，空缺会自动兜底英文。
+   - 在 `web.supported_locales` 与 `output.locale`/`web.default_locale` 中加入新语言代码（示例：`fr` 或 `fr-FR`）。
+3. **运行验证**：执行 `go test ./pkg/i18n ./internal/printer` 确保 CLI 词条无缺；构建静态资源或启动 `make dev`，在浏览器切换语言核验 UI。
+4. **提交前检查**：若移除了键名，请同步更新 README 里的“多语言支持”说明，避免遗漏维护指南。
 - 请求详情弹窗提供 Headers/Body 独立工具：可单独复制、切换换行/横向滚动，并在 JSON Raw/Pretty 视图间一键切换
 - 重新设计的布局将页面头部、统计卡片与筛选面板固定可视，仅主体列表区域滚动，长列表体验更佳
 - 管理员可对任一请求直接复制/下载 Request 报文、复制/下载固定 Response 报文，以及复制可直接重放的 cURL 命令
@@ -429,38 +473,6 @@ storage:
 **使用配置文件：**
 ```bash
 reqtap --config config.yaml
-```
-
-### 环境变量
-
-所有配置选项都可以通过带有 `REQTAP_` 前缀的环境变量设置：
-
-```bash
-# 服务器设置
-export REQTAP_SERVER_PORT=8080
-export REQTAP_SERVER_PATH="/reqtap"
-export REQTAP_SERVER_MAX_BODY_BYTES=2097152
-
-# 日志设置
-export REQTAP_LOG_LEVEL=debug
-export REQTAP_LOG_FILE_ENABLE=true
-export REQTAP_LOG_FILE_PATH="/var/log/reqtap.log"
-
-# 转发设置
-export REQTAP_FORWARD_URLS="http://localhost:3000/webhook,https://api.example.com/ingest"
-export REQTAP_FORWARD_TIMEOUT=30
-
-# Web 控制台
-export REQTAP_WEB_ENABLE=true
-export REQTAP_WEB_PATH="/console"
-export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
-
-# 输出模式
-export REQTAP_OUTPUT_MODE=json
-export REQTAP_OUTPUT_SILENCE=false
-
-# 启动 ReqTap
-./reqtap
 ```
 
 ### 场景示例

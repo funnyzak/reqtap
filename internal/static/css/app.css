@@ -349,6 +349,44 @@ body.modal-open {
   color: var(--brand-emerald);
 }
 
+.locale-switch {
+  position: relative;
+}
+
+.locale-select {
+  appearance: none;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-button);
+  color: var(--text-default);
+  padding: 0.5rem 2rem 0.5rem 0.95rem;
+  font-weight: 500;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.locale-select:focus {
+  outline: none;
+  border-color: var(--brand-cyan);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.locale-switch::after {
+  content: '\f107';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+}
+
+.locale-select option {
+  color: var(--text-contrast);
+}
+
 .action-btn--danger {
   border-color: rgba(251, 113, 133, 0.35);
   color: var(--brand-rose);
@@ -769,6 +807,19 @@ body.modal-open {
   }
 }
 
+/* Screen reader only content */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 @media (max-width: 768px) {
   .page-header {
     margin-bottom: 1.5rem;
@@ -783,4 +834,64 @@ body.modal-open {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* Export button theme-aware styles */
+.export-btn--emerald {
+  color: var(--text-emerald-export);
+}
+
+.export-btn--cyan {
+  color: var(--text-cyan-export);
+}
+
+/* Default colors for dark mode */
+:root {
+  --text-emerald-export: #d1fae5; /* emerald-200 */
+  --text-cyan-export: #a5f3fc; /* cyan-200 */
+}
+
+/* Light mode colors with enhanced contrast */
+:root[data-theme='light'] {
+  --text-emerald-export: #047857; /* emerald-700 */
+  --text-cyan-export: #0e7490; /* cyan-700 */
+}
+
+/* Brand icon theme-aware style */
+.brand-icon {
+  color: var(--brand-emerald);
+}
+
+/* Role badge theme-aware style */
+.role-badge {
+  color: var(--brand-emerald);
+}
+
+/* Login icon theme-aware style */
+.login-icon {
+  color: var(--brand-emerald);
+}
+
+/* Export button hover states with enhanced contrast */
+:root[data-theme='light'] .export-btn--emerald:hover {
+  color: #065f46; /* emerald-800 - darker for hover */
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+:root[data-theme='light'] .export-btn--cyan:hover {
+  color: #155e75; /* cyan-800 - darker for hover */
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* Dark mode hover states (keeping original behavior) */
+.export-btn--emerald:hover {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.export-btn--cyan:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
 }

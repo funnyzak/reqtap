@@ -385,16 +385,18 @@ func (s *Service) wrapPage(page string, injectConfig bool) http.HandlerFunc {
 
 func (s *Service) injectConfig(content []byte) []byte {
 	configScript := map[string]interface{}{
-		"apiBase":        normalizePath(s.cfg.AdminPath),
-		"wsEndpoint":     joinPath(s.cfg.AdminPath, "/ws"),
-		"exportFormats":  s.formats,
-		"authEnabled":    s.auth.Enabled(),
-		"webBase":        normalizePath(s.cfg.Path),
-		"maxRequests":    s.cfg.MaxRequests,
-		"exportEnabled":  s.cfg.Export.Enable,
-		"sessionTimeout": s.cfg.Auth.SessionTimeout.String(),
-		"roleAdmin":      roleAdmin,
-		"roleViewer":     roleViewer,
+		"apiBase":          normalizePath(s.cfg.AdminPath),
+		"wsEndpoint":       joinPath(s.cfg.AdminPath, "/ws"),
+		"exportFormats":    s.formats,
+		"authEnabled":      s.auth.Enabled(),
+		"webBase":          normalizePath(s.cfg.Path),
+		"maxRequests":      s.cfg.MaxRequests,
+		"exportEnabled":    s.cfg.Export.Enable,
+		"sessionTimeout":   s.cfg.Auth.SessionTimeout.String(),
+		"roleAdmin":        roleAdmin,
+		"roleViewer":       roleViewer,
+		"defaultLocale":    s.cfg.DefaultLocale,
+		"supportedLocales": s.cfg.SupportedLocales,
 	}
 
 	payload, _ := json.Marshal(configScript)

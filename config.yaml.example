@@ -141,6 +141,11 @@ web:
   # Maximum number of in-memory requests retained
   max_requests: 500
 
+  # Default locale for the web console (affects initial language)
+  default_locale: "en"
+  # Allowed locales that can be toggled within the UI
+  supported_locales: ["en", "zh-CN", "ja", "ko", "fr", "ru"]
+
   auth:
     # Enable authentication
     enable: true
@@ -165,6 +170,8 @@ web:
 output:
   # console or json
   mode: "console"
+  # Output language for console printing (e.g. en, zh-CN)
+  locale: "en"
   # When true, disables banner and request printing (logs still emit)
   silence: false
   # Enable multi-format body view (pretty JSON, form table, XML/HTML formatting)

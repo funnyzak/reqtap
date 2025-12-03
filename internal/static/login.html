@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ReqTap · Login</title>
+  <title data-i18n="meta.login_title">ReqTap · Login</title>
   <script>
     (function () {
       try {
@@ -26,35 +26,39 @@
 
 <body class="min-h-screen flex items-center justify-center p-6 font-inter antialiased auth-page">
   <div class="w-full max-w-md p-8 auth-card">
-    <div class="flex justify-end mb-4">
+    <div class="flex justify-end mb-4 gap-2 items-center">
+      <div class="locale-switch">
+        <label for="login-locale-select" class="sr-only" data-i18n="header.language">Language</label>
+        <select id="login-locale-select" class="locale-select" aria-label="Language"></select>
+      </div>
       <button id="theme-toggle" type="button" class="action-btn theme-toggle text-sm" aria-pressed="false">
         <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
-        <span id="theme-toggle-label">Light</span>
+        <span id="theme-toggle-label" data-i18n="header.theme.light">Light</span>
       </button>
     </div>
     <div class="text-center mb-8">
-      <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300 mb-3">
+      <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 login-icon mb-3">
         <i class="fa-solid fa-shield-halved text-2xl"></i>
       </div>
-      <h1 class="text-2xl font-semibold">ReqTap Console</h1>
-      <p class="text-muted text-sm mt-1">Sign in to orchestrate your live request monitor.</p>
+      <h1 class="text-2xl font-semibold" data-i18n="login.title">ReqTap Console</h1>
+      <p class="text-muted text-sm mt-1" data-i18n="login.subtitle">Sign in to orchestrate your live request monitor.</p>
     </div>
 
     <form id="login-form" class="space-y-5">
       <div>
-        <label class="text-sm text-muted mb-1 block">Username</label>
-        <input type="text" name="username" required autocomplete="username" placeholder="admin"
+        <label class="text-sm text-muted mb-1 block" data-i18n="login.username">Username</label>
+        <input type="text" name="username" required autocomplete="username" placeholder="admin" data-i18n-placeholder="login.username_placeholder"
           class="control-input" />
       </div>
       <div>
-        <label class="text-sm text-muted mb-1 block">Password</label>
-        <input name="password" required type="password" autocomplete="current-password" placeholder="••••••••"
+        <label class="text-sm text-muted mb-1 block" data-i18n="login.password">Password</label>
+        <input name="password" required type="password" autocomplete="current-password" placeholder="••••••••" data-i18n-placeholder="login.password_placeholder"
           class="control-input" />
       </div>
       <button type="submit"
         class="w-full rounded-xl bg-emerald-500/80 hover:bg-emerald-400 font-semibold py-2 transition flex items-center justify-center gap-2 text-contrast">
         <i class="fa-solid fa-right-to-bracket"></i>
-        Login
+        <span data-i18n="login.submit">Login</span>
       </button>
     </form>
 
@@ -62,7 +66,7 @@
 
     <div class="auth-footer">
       <p>
-        Repo:
+        <span data-i18n="repo.title">Repo</span>:
         <a class="subtle-link" href="https://github.com/funnyzak/reqtap" target="_blank" rel="noreferrer noopener">
           funnyzak/reqtap
         </a>
