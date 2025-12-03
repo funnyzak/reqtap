@@ -501,6 +501,11 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 	}
 
 	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("🌐 CLI Locale:    %s", formatLocaleValue(cfg.Output.Locale)))
+	lines = append(lines, fmt.Sprintf("   └─ Web default: %s", formatLocaleValue(cfg.Web.DefaultLocale)))
+	lines = append(lines, fmt.Sprintf("   └─ Web locales: %s", formatLocaleList(cfg.Web.SupportedLocales)))
+
+	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("💽 Storage:        %s", strings.ToLower(cfg.Storage.Driver)))
 	lines = append(lines, fmt.Sprintf("   └─ Path:       %s", cfg.Storage.Path))
 	if cfg.Storage.MaxRecords > 0 {
@@ -579,6 +584,9 @@ func printStartupBanner(cfg *config.Config, log logger.Logger) {
 		"web_admin_path", cfg.Web.AdminPath,
 		"web_auth", cfg.Web.Auth.Enable,
 		"web_export", cfg.Web.Export.Enable,
+		"output_locale", cfg.Output.Locale,
+		"web_default_locale", cfg.Web.DefaultLocale,
+		"web_supported_locales", cfg.Web.SupportedLocales,
 	)
 }
 
@@ -640,6 +648,32 @@ func formatPathStrategySummary(cfg *config.Config) string {
 	}
 }
 
+func formatLocaleValue(locale string) string {
+	trimmed := strings.TrimSpace(locale)
+	if trimmed == "" {
+		return "auto"
+	}
+	return trimmed
+}
+
+func formatLocaleList(locales []string) string {
+	if len(locales) == 0 {
+		return "not configured"
+	}
+	result := make([]string, 0, len(locales))
+	for _, loc := range locales {
+		trimmed := strings.TrimSpace(loc)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	if len(result) == 0 {
+		return "not configured"
+	}
+	return strings.Join(result, ", ")
+}
+
 func logStartupSummary(cfg *config.Config, log logger.Logger) {
 	mode := strings.ToLower(cfg.Output.Mode)
 	var responseNames []string
@@ -654,6 +688,9 @@ func logStartupSummary(cfg *config.Config, log logger.Logger) {
 		"path_strategy", formatPathStrategySummary(cfg),
 		"output_mode", mode,
 		"silence", cfg.Output.Silence,
+		"output_locale", cfg.Output.Locale,
+		"web_default_locale", cfg.Web.DefaultLocale,
+		"web_supported_locales", cfg.Web.SupportedLocales,
 		"storage_driver", cfg.Storage.Driver,
 		"storage_path", cfg.Storage.Path,
 		"storage_max_records", cfg.Storage.MaxRecords,

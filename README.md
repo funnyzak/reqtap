@@ -206,6 +206,30 @@ go build -o reqtap ./cmd/reqtap
 - **Web 控制台**：`web.default_locale` 定义首次加载语言，`web.supported_locales` 决定下拉可选项。内置英文、简体中文、日文、韩文、法文、俄文翻译，支持在右上角语言菜单即时切换并记忆到浏览器。
 - **自定义扩展**：编辑 `internal/static/locales/*.json`（或构建后的同名资源）即可新增语言，使用前端专用的键结构，缺失条目会自动回退至英文，保证界面完整性。
 
+#### 支持语言与配置方式
+
+当前二进制内置 `en`、`zh-CN`、`ja`、`ko`、`fr`、`ru` 六种语言，CLI 与 Web 控制台共用同一组翻译目录。常见配置入口如下：
+
+| 组件 | 配置入口 | 默认值 | 说明 |
+| ---- | -------- | ------ | ---- |
+| CLI 输出 | `output.locale` / `--locale` | `en` | 启动后立即切换终端提示语言，可随时通过命令行覆盖配置文件。 |
+| Web 默认语言 | `web.default_locale` | `en` | 控制网页首次渲染时使用的语言，若浏览器偏好匹配受支持语言则会自动覆盖。 |
+| Web 可选语言 | `web.supported_locales` | `[en, zh-CN, ja, ko, fr, ru]` | 决定语言下拉框中出现的列表。 |
+
+示例配置：
+
+```yaml
+output:
+  locale: "zh-CN"
+
+web:
+  default_locale: "zh-CN"
+  supported_locales:
+    - zh-CN
+    - en
+    - ja
+```
+
 #### 多语言维护指南
 
 1. **命名规范**：
@@ -448,38 +472,6 @@ storage:
 **使用配置文件：**
 ```bash
 reqtap --config config.yaml
-```
-
-### 环境变量
-
-所有配置选项都可以通过带有 `REQTAP_` 前缀的环境变量设置：
-
-```bash
-# 服务器设置
-export REQTAP_SERVER_PORT=8080
-export REQTAP_SERVER_PATH="/reqtap"
-export REQTAP_SERVER_MAX_BODY_BYTES=2097152
-
-# 日志设置
-export REQTAP_LOG_LEVEL=debug
-export REQTAP_LOG_FILE_ENABLE=true
-export REQTAP_LOG_FILE_PATH="/var/log/reqtap.log"
-
-# 转发设置
-export REQTAP_FORWARD_URLS="http://localhost:3000/webhook,https://api.example.com/ingest"
-export REQTAP_FORWARD_TIMEOUT=30
-
-# Web 控制台
-export REQTAP_WEB_ENABLE=true
-export REQTAP_WEB_PATH="/console"
-export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
-
-# 输出模式
-export REQTAP_OUTPUT_MODE=json
-export REQTAP_OUTPUT_SILENCE=false
-
-# 启动 ReqTap
-./reqtap
 ```
 
 ### 场景示例

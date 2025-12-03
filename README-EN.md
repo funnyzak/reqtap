@@ -207,6 +207,30 @@ ReqTap ships with a zero-dependency web console that is enabled by default. Once
 - **Web dashboard** – control the initial language via `web.default_locale` and expose multiple options through `web.supported_locales`. The top-right selector lets users switch instantly without reloading, and the choice is stored in `localStorage`.
 - **Custom languages** – drop an additional `locales/<lang>.json` file under `internal/static/locales` (or the extracted static assets) using frontend-specific key structures. Only the differing strings are required—any gaps fall back to English so the UI remains complete.
 
+#### Supported Languages and Configuration
+
+The binary ships with six locales: `en`, `zh-CN`, `ja`, `ko`, `fr`, and `ru`. CLI and Web share the same dictionaries, and you can tune the behavior with the knobs below:
+
+| Component | Entry point | Default | Notes |
+| --------- | ----------- | ------- | ----- |
+| CLI output | `output.locale` / `--locale` | `en` | Switches terminal prompts right at startup; command-line flags always override config files. |
+| Web default locale | `web.default_locale` | `en` | Controls the language used for the very first render; compatible browsers can still override via auto-detection if the locale is supported. |
+| Web supported locales | `web.supported_locales` | `[en, zh-CN, ja, ko, fr, ru]` | Defines the drop-down list in the UI. |
+
+Sample configuration:
+
+```yaml
+output:
+  locale: "zh-CN"
+
+web:
+  default_locale: "zh-CN"
+  supported_locales:
+    - zh-CN
+    - en
+    - ja
+```
+
 #### Localization Workflow
 
 1. **Naming convention** –
@@ -446,38 +470,6 @@ Highlights:
 **Usage with configuration file:**
 ```bash
 reqtap --config config.yaml
-```
-
-### Environment Variables
-
-All configuration options can be set via environment variables with the `REQTAP_` prefix:
-
-```bash
-# Server settings
-export REQTAP_SERVER_PORT=8080
-export REQTAP_SERVER_PATH="/reqtap"
-export REQTAP_SERVER_MAX_BODY_BYTES=2097152
-
-# Logging settings
-export REQTAP_LOG_LEVEL=debug
-export REQTAP_LOG_FILE_ENABLE=true
-export REQTAP_LOG_FILE_PATH="/var/log/reqtap.log"
-
-# Forwarding settings
-export REQTAP_FORWARD_URLS="http://localhost:3000/webhook,https://api.example.com/ingest"
-export REQTAP_FORWARD_TIMEOUT=30
-
-# Web console settings
-export REQTAP_WEB_ENABLE=true
-export REQTAP_WEB_PATH="/console"
-export REQTAP_WEB_AUTH_SESSION_TIMEOUT=12h
-
-# Output settings
-export REQTAP_OUTPUT_MODE=json
-export REQTAP_OUTPUT_SILENCE=false
-
-# Start ReqTap
-./reqtap
 ```
 
 ### Use Case Examples
