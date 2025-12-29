@@ -71,6 +71,7 @@
     "actions": {
       "download_request": "Télécharger la requête",
       "copy_request": "Copier la requête",
+      "replay_request": "Rejouer la requête",
       "copy_curl": "Copier la commande cURL",
       "status": {
         "request_downloaded": "Requête téléchargée",
@@ -134,5 +135,29 @@
     "password_placeholder": "••••••••",
     "submit": "Connexion",
     "message_failed": "Échec de la connexion"
+  },
+  "replay": {
+    "title": "Rejouer la requête",
+    "description": "Modifier les paramètres de la requête et l'envoyer à l'URL cible",
+    "fields": {
+      "target_url": "URL cible",
+      "method": "Méthode",
+      "headers": "En-têtes (JSON)",
+      "body": "Corps",
+      "query": "Chaîne de requête"
+    },
+    "actions": {
+      "cancel": "Annuler",
+      "submit": "Rejouer"
+    },
+    "status": {
+      "sending": "Envoi en cours...",
+      "success": "Relecture réussie ! Statut : {status_code}, Temps : {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "L'URL cible est requise",
+      "invalid_headers": "Format JSON des en-têtes invalide",
+      "failed": "Échec de la relecture : {error}"
+    }
   }
 }

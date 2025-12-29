@@ -60,6 +60,17 @@ const els = {
   requestDownload: document.getElementById('request-download-btn'),
   requestCopy: document.getElementById('request-copy-btn'),
   curlCopy: document.getElementById('curl-copy-btn'),
+  replayBtn: document.getElementById('replay-btn'),
+  replayModal: document.getElementById('replay-modal'),
+  replayClose: document.getElementById('replay-close'),
+  replayCancel: document.getElementById('replay-cancel'),
+  replaySubmit: document.getElementById('replay-submit'),
+  replayTargetUrl: document.getElementById('replay-target-url'),
+  replayMethod: document.getElementById('replay-method'),
+  replayHeaders: document.getElementById('replay-headers'),
+  replayBody: document.getElementById('replay-body'),
+  replayQuery: document.getElementById('replay-query'),
+  replayStatus: document.getElementById('replay-status'),
   actionStatus: document.getElementById('detail-action-status'),
   adminAreas: document.querySelectorAll('[data-admin-only="true"]'),
   adminButtons: document.querySelectorAll('[data-admin-action="true"]'),
@@ -694,6 +705,30 @@ function bindEvents() {
     });
   }
 
+  if (els.replayBtn) {
+    els.replayBtn.addEventListener('click', () => {
+      openReplayModal();
+    });
+  }
+
+  if (els.replayClose) {
+    els.replayClose.addEventListener('click', () => {
+      closeReplayModal();
+    });
+  }
+
+  if (els.replayCancel) {
+    els.replayCancel.addEventListener('click', () => {
+      closeReplayModal();
+    });
+  }
+
+  if (els.replaySubmit) {
+    els.replaySubmit.addEventListener('click', () => {
+      handleReplaySubmit();
+    });
+  }
+
   if (els.headersCopyBtn) {
     els.headersCopyBtn.addEventListener('click', () => handleHeadersCopy());
   }
@@ -1005,6 +1040,160 @@ function refreshLocaleUI() {
     Array.from(els.localeSelect.options).forEach((option) => {
       option.textContent = i18n.t(`header.locale_label.${option.value}`) || option.value;
     });
+  }
+}
+
+// Replay functions
+function openReplayModal() {
+  if (!ensureAdminAction()) return;
+  const item = ensureActiveRequest();
+  if (!item) return;
+
+  // Pre-fill the form with current request data
+  if (els.replayTargetUrl) els.replayTargetUrl.value = '';
+  if (els.replayMethod) els.replayMethod.value = item.method || 'POST';
+
+  // Format headers as JSON
+  if (els.replayHeaders) {
+    const headers = {};
+    const rawHeaders = item.headers || {};
+    Object.entries(rawHeaders).forEach(([key, value]) => {
+      headers[key] = Array.isArray(value) ? value[0] : value;
+    });
+    els.replayHeaders.value = JSON.stringify(headers, null, 2);
+  }
+
+  // Set body
+  if (els.replayBody) {
+    els.replayBody.value = state.activeRequestBody || '';
+  }
+
+  // Set query
+  if (els.replayQuery) {
+    els.replayQuery.value = item.query || '';
+  }
+
+  // Clear status
+  if (els.replayStatus) {
+    els.replayStatus.classList.add('hidden');
+    els.replayStatus.textContent = '';
+  }
+
+  // Show modal
+  if (els.replayModal) {
+    els.replayModal.classList.remove('hidden');
+    els.replayModal.classList.add('flex');
+  }
+
+  // Focus on target URL input
+  setTimeout(() => {
+    if (els.replayTargetUrl) els.replayTargetUrl.focus();
+  }, 100);
+}
+
+function closeReplayModal() {
+  if (els.replayModal) {
+    els.replayModal.classList.add('hidden');
+    els.replayModal.classList.remove('flex');
+  }
+}
+
+function setReplayStatus(message, type = 'success') {
+  if (!els.replayStatus) return;
+  els.replayStatus.textContent = message;
+  els.replayStatus.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800');
+
+  if (type === 'success') {
+    els.replayStatus.classList.add('bg-green-100', 'text-green-800');
+  } else if (type === 'error') {
+    els.replayStatus.classList.add('bg-red-100', 'text-red-800');
+  } else {
+    els.replayStatus.classList.add('bg-blue-100', 'text-blue-800');
+  }
+}
+
+async function handleReplaySubmit() {
+  const item = ensureActiveRequest();
+  if (!item) return;
+
+  // Validate target URL
+  const targetUrl = els.replayTargetUrl?.value.trim();
+  if (!targetUrl) {
+    setReplayStatus(i18n.t('replay.errors.target_url_required') || 'Target URL is required', 'error');
+    return;
+  }
+
+  // Parse headers
+  let headers = {};
+  const headersText = els.replayHeaders?.value.trim();
+  if (headersText) {
+    try {
+      headers = JSON.parse(headersText);
+    } catch (error) {
+      setReplayStatus(i18n.t('replay.errors.invalid_headers') || 'Invalid headers JSON format', 'error');
+      return;
+    }
+  }
+
+  // Prepare request payload
+  const replayPayload = {
+    request_id: item.id,
+    target_url: targetUrl,
+    method: els.replayMethod?.value || item.method,
+    headers: headers,
+    body: els.replayBody?.value || '',
+    query: els.replayQuery?.value || '',
+  };
+
+  // Disable submit button
+  if (els.replaySubmit) {
+    els.replaySubmit.disabled = true;
+    els.replaySubmit.textContent = i18n.t('replay.status.sending') || 'Sending...';
+  }
+
+  setReplayStatus(i18n.t('replay.status.sending') || 'Sending replay request...', 'info');
+
+  try {
+    const response = await fetch(`${API_BASE}/replay`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(replayPayload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    // Show success message with response details
+    const statusMessage = i18n.t('replay.status.success', {
+      status_code: result.status_code,
+      response_time: result.response_time_ms,
+    }) || `Replay successful! Status: ${result.status_code}, Time: ${result.response_time_ms}ms`;
+
+    setReplayStatus(statusMessage, 'success');
+
+    // Close modal after 2 seconds
+    setTimeout(() => {
+      closeReplayModal();
+    }, 2000);
+
+  } catch (error) {
+    console.error('Replay failed:', error);
+    const errorMessage = i18n.t('replay.errors.failed', {
+      error: error.message,
+    }) || `Replay failed: ${error.message}`;
+    setReplayStatus(errorMessage, 'error');
+  } finally {
+    // Re-enable submit button
+    if (els.replaySubmit) {
+      els.replaySubmit.disabled = false;
+      els.replaySubmit.textContent = i18n.t('replay.actions.submit') || 'Replay';
+    }
   }
 }
 

@@ -71,6 +71,7 @@
     "actions": {
       "download_request": "Скачать запрос",
       "copy_request": "Копировать запрос",
+      "replay_request": "Повторить запрос",
       "copy_curl": "Копировать команду cURL",
       "status": {
         "request_downloaded": "Запрос скачан",
@@ -134,5 +135,29 @@
     "password_placeholder": "••••••••",
     "submit": "Войти",
     "message_failed": "Ошибка входа"
+  },
+  "replay": {
+    "title": "Повторить запрос",
+    "description": "Изменить параметры запроса и отправить на целевой URL",
+    "fields": {
+      "target_url": "Целевой URL",
+      "method": "Метод",
+      "headers": "Заголовки (JSON)",
+      "body": "Тело",
+      "query": "Строка запроса"
+    },
+    "actions": {
+      "cancel": "Отмена",
+      "submit": "Повторить"
+    },
+    "status": {
+      "sending": "Отправка...",
+      "success": "Повтор успешен! Статус: {status_code}, Время: {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "Целевой URL обязателен",
+      "invalid_headers": "Неверный формат JSON заголовков",
+      "failed": "Ошибка повтора: {error}"
+    }
   }
 }

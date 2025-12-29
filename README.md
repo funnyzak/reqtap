@@ -31,6 +31,7 @@ ReqTap 是一个跨平台、零外部依赖的 HTTP 请求捕获与调试平台�
 
 - **轻量部署**：单二进制 + 内嵌 SQLite，默认以 WAL 与 busy-timeout 运行，无需额外数据库或消息队列。
 - **内建持久化**：`storage.max_records`、`storage.retention` 既可按数量也可按时间裁剪历史，并支持 JSON/CSV/Text 全量导出。
+- **请求重放**：从历史记录中选择请求，可修改目标地址、Headers、Body、Query 后重新发送，支持查看完整重放历史并记录响应时间与状态码。
 - **即时响应编排**：`server.responses` 针对方法/路径设置状态码、Body、Header，快速模拟外部依赖或兜底响应。
 - **高可读 CLI 输出**：使用 runewidth 适配多语言终端，自动检测二进制体、智能脱敏敏感 Header，并支持十六进制预览/落盘。
 - **异步多路转发**：Forwarder 内置限流、超时、重试与并发控制，配合路径策略 (`append`/`strip_prefix`/`rewrite`) 适配不同环境。
@@ -196,6 +197,7 @@ go build -o reqtap ./cmd/reqtap
 - 通过 WebSocket 实时流观察最新请求
 - 根据 HTTP 方法、路径、Query、头部或来源 IP 进行筛选/搜索
 - 在模态窗口中查看完整的请求详情（Headers + Body）
+- **请求重放**：选择历史请求，可修改目标地址、方法、Headers、Body、Query 参数后重新发送到任意服务器，系统会自动记录重放结果（状态码、响应体、响应时间），支持查看该请求的完整重放历史
 - 一键导出当前视图为 JSON、CSV 或纯文本
 - 在控制台右上角切换暗色/亮色主题，偏好会自动保存在浏览器中
 - 登录页同样提供暗色/亮色主题切换，确保进入控制台前体验一致
@@ -256,6 +258,8 @@ web:
 | `GET`  | `/api/requests` | 查询最近请求，支持 `search`、`method`、`limit`、`offset` |
 | `GET`  | `/api/export` | 根据过滤条件导出 JSON/CSV/TXT |
 | `GET`  | `/api/ws` | WebSocket 通道，实时推送新请求 |
+| `POST` | `/api/replay` | 重放请求，支持修改目标地址、方法、Headers、Body、Query |
+| `GET`  | `/api/replays` | 查询请求的重放历史，参数 `request_id` |
 
 通过配置文件的 `web` 段可以调整访问路径、最大缓存数量，或完全关闭 Web 控制台。
 

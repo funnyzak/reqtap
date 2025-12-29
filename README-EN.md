@@ -31,6 +31,7 @@ With ReqTap you can:
 
 - **Lightweight deployment** – Single binary + embedded SQLite (WAL + busy-timeout) means no external DBs or queues.
 - **Built-in persistence** – `storage.max_records` / `storage.retention` enforce count/time pruning, and exports are available as JSON/CSV/Text.
+- **Request Replay** – Select historical requests and resend them to any server with modified target URL, method, headers, body, and query parameters. The system automatically records replay results (status code, response body, response time) and maintains a complete replay history for each request.
 - **Programmable mock responses** – `server.responses` script per-method/path status codes, bodies, and headers to emulate dependencies.
 - **Readable CLI output** – Runewidth-aware layout, binary detection, sensitive-header redaction, optional hex preview or disk dump.
 - **Concurrent forwarding** – Worker pool with timeouts, retries, and path strategies (`append`/`strip_prefix`/`rewrite`).
@@ -196,6 +197,7 @@ ReqTap ships with a zero-dependency web console that is enabled by default. Once
 - Watch incoming requests in real-time via WebSocket streaming
 - Filter/search by HTTP method, path, query, headers, or origin IP
 - Inspect full request details (headers + body) in a modal panel
+- **Request Replay** – Select any historical request to replay. You can modify the target URL, method, headers, body, and query parameters before resending. The system automatically records the replay result (status code, response body, response time) and you can view the complete replay history for each request.
 - Export the current view as JSON, CSV, or plain text with a single click
 - Toggle between dark and light themes from the header switch; the preference is persisted locally per browser
 - Access the same dark/light switch right on the login page so the experience is consistent before entering the console
@@ -255,6 +257,8 @@ APIs powering the dashboard live under the configurable `web.admin_path` (defaul
 | `GET`  | `/api/requests` | List recent requests with optional `search`, `method`, `limit`, `offset` |
 | `GET`  | `/api/export` | Export filtered requests as JSON/CSV/TXT |
 | `GET`  | `/api/ws` | WebSocket stream broadcasting every new request |
+| `POST` | `/api/replay` | Replay a request with optional modifications to target URL, method, headers, body, and query |
+| `GET`  | `/api/replays` | Get replay history for a specific request (query parameter: `request_id`) |
 
 All paths are fully configurable through the `web` section of `config.yaml`, so the dashboard can be mounted under any prefix or disabled entirely.
 

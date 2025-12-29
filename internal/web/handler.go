@@ -92,6 +92,10 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	apiRouter.Handle("/export", s.authMiddleware(http.HandlerFunc(s.handleExport))).Methods(http.MethodGet)
 	apiRouter.Handle("/ws", s.authMiddleware(http.HandlerFunc(s.handleWebsocket))).Methods(http.MethodGet)
 
+	// Replay routes
+	apiRouter.Handle("/replay", s.authMiddleware(http.HandlerFunc(s.handleReplay))).Methods(http.MethodPost)
+	apiRouter.Handle("/replays", s.authMiddleware(http.HandlerFunc(s.handleGetReplays))).Methods(http.MethodGet)
+
 	// Static routes
 	if webBase == "/" {
 		router.HandleFunc("/", s.wrapPage(indexPageName, true)).Methods(http.MethodGet)

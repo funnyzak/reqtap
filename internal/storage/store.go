@@ -25,6 +25,11 @@ type StoredRequest struct {
 	*request.RequestData
 }
 
+// StoredReplay wraps ReplayData with storage metadata
+type StoredReplay struct {
+	*request.ReplayData
+}
+
 // Store defines the persistence contract for captured requests.
 type Store interface {
 	Record(*request.RequestData) (*StoredRequest, error)
@@ -32,6 +37,11 @@ type Store interface {
 	Iterate(ListOptions, func(*StoredRequest) bool) error
 	Snapshot() ([]*StoredRequest, error)
 	Get(string) (*StoredRequest, error)
+
+	// Replay related methods
+	RecordReplay(*request.ReplayData) (*StoredReplay, error)
+	GetReplays(originalRequestID string) ([]*StoredReplay, error)
+
 	Close() error
 }
 
