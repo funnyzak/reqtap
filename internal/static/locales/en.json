@@ -71,6 +71,7 @@
     "actions": {
       "download_request": "Download request",
       "copy_request": "Copy request",
+      "replay_request": "Replay request",
       "copy_curl": "Copy cURL command",
       "status": {
         "request_downloaded": "Request downloaded",
@@ -134,5 +135,29 @@
     "password_placeholder": "••••••••",
     "submit": "Login",
     "message_failed": "Login failed"
+  },
+  "replay": {
+    "title": "Replay Request",
+    "description": "Modify the request parameters and send it to a target URL",
+    "fields": {
+      "target_url": "Target URL",
+      "method": "Method",
+      "headers": "Headers (JSON)",
+      "body": "Body",
+      "query": "Query String"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "submit": "Replay"
+    },
+    "status": {
+      "sending": "Sending...",
+      "success": "Replay successful! Status: {status_code}, Time: {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "Target URL is required",
+      "invalid_headers": "Invalid headers JSON format",
+      "failed": "Replay failed: {error}"
+    }
   }
 }

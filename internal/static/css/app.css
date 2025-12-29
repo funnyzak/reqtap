@@ -895,3 +895,13 @@ body.modal-open {
   border-color: rgba(56, 189, 248, 0.4);
   background: rgba(56, 189, 248, 0.1);
 }
+
+/* Primary button background styles */
+.bg-primary {
+  background-color: var(--brand-emerald) !important;
+}
+
+.bg-primary:hover,
+.hover\:bg-primary-hover:hover {
+  background-color: rgba(16, 185, 129, 0.9) !important;
+}

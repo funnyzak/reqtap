@@ -93,6 +93,23 @@ CREATE TABLE IF NOT EXISTS requests (
 );
 CREATE INDEX IF NOT EXISTS idx_requests_ts ON requests(timestamp_ns DESC);
 CREATE INDEX IF NOT EXISTS idx_requests_method_ts ON requests(method, timestamp_ns DESC);
+
+CREATE TABLE IF NOT EXISTS replays (
+    id TEXT PRIMARY KEY,
+    original_request_id TEXT NOT NULL,
+    timestamp_ns INTEGER NOT NULL,
+    method TEXT NOT NULL,
+    url TEXT NOT NULL,
+    headers_json TEXT,
+    body BLOB,
+    status_code INTEGER,
+    response_body BLOB,
+    response_time_ms INTEGER,
+    error TEXT,
+    FOREIGN KEY (original_request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_replays_ts ON replays(timestamp_ns DESC);
+CREATE INDEX IF NOT EXISTS idx_replays_original ON replays(original_request_id);
 `
 	_, err := s.db.Exec(schema)
 	return err
@@ -407,4 +424,132 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// RecordReplay stores a replay record
+func (s *sqliteStore) RecordReplay(data *request.ReplayData) (*StoredReplay, error) {
+	if data == nil {
+		return nil, fmt.Errorf("replay data is nil")
+	}
+	if strings.TrimSpace(data.ID) == "" {
+		data.ID = fmt.Sprintf("RPL-%d", time.Now().UnixNano())
+	}
+
+	ctx := context.Background()
+	ts := data.Timestamp.UTC()
+	if ts.IsZero() {
+		ts = time.Now().UTC()
+		data.Timestamp = ts
+	}
+
+	headersJSON, err := json.Marshal(data.Headers)
+	if err != nil {
+		return nil, fmt.Errorf("marshal headers: %w", err)
+	}
+
+	insertSQL := `INSERT INTO replays (
+		id, original_request_id, timestamp_ns, method, url,
+		headers_json, body, status_code, response_body, response_time_ms, error
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	_, err = s.db.ExecContext(ctx, insertSQL,
+		data.ID,
+		data.OriginalRequestID,
+		ts.UnixNano(),
+		data.Method,
+		data.URL,
+		string(headersJSON),
+		data.Body,
+		data.StatusCode,
+		data.ResponseBody,
+		data.ResponseTimeMs,
+		data.Error,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("insert replay: %w", err)
+	}
+
+	return &StoredReplay{ReplayData: data}, nil
+}
+
+// GetReplays retrieves all replays for a specific request
+func (s *sqliteStore) GetReplays(originalRequestID string) ([]*StoredReplay, error) {
+	ctx := context.Background()
+	query := `SELECT id, original_request_id, timestamp_ns, method, url,
+		headers_json, body, status_code, response_body, response_time_ms, error
+		FROM replays WHERE original_request_id = ? ORDER BY timestamp_ns DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, originalRequestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*StoredReplay
+	for rows.Next() {
+		replay, err := scanStoredReplay(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, replay)
+	}
+
+	return result, rows.Err()
+}
+
+func scanStoredReplay(scanner interface {
+	Scan(dest ...interface{}) error
+}) (*StoredReplay, error) {
+	var (
+		id                string
+		originalRequestID string
+		ts                int64
+		method            string
+		url               string
+		headersJSON       sql.NullString
+		body              []byte
+		statusCode        sql.NullInt64
+		responseBody      []byte
+		responseTimeMs    sql.NullInt64
+		errorMsg          sql.NullString
+	)
+
+	if err := scanner.Scan(
+		&id,
+		&originalRequestID,
+		&ts,
+		&method,
+		&url,
+		&headersJSON,
+		&body,
+		&statusCode,
+		&responseBody,
+		&responseTimeMs,
+		&errorMsg,
+	); err != nil {
+		return nil, err
+	}
+
+	headers := make(map[string]string)
+	if headersJSON.Valid && headersJSON.String != "" {
+		if err := json.Unmarshal([]byte(headersJSON.String), &headers); err != nil {
+			headers = make(map[string]string)
+		}
+	}
+
+	data := &request.ReplayData{
+		ID:                id,
+		OriginalRequestID: originalRequestID,
+		Timestamp:         time.Unix(0, ts).UTC(),
+		Method:            method,
+		URL:               url,
+		Headers:           headers,
+		Body:              append([]byte(nil), body...),
+		StatusCode:        int(statusCode.Int64),
+		ResponseBody:      append([]byte(nil), responseBody...),
+		ResponseTimeMs:    responseTimeMs.Int64,
+		Error:             errorMsg.String,
+	}
+
+	return &StoredReplay{ReplayData: data}, nil
 }

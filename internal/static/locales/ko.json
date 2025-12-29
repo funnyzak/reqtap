@@ -68,6 +68,7 @@
     "actions": {
       "download_request": "요청 다운로드",
       "copy_request": "요청 복사",
+      "replay_request": "요청 재생",
       "copy_curl": "cURL 명령어 복사",
       "status": {
         "request_downloaded": "요청을 다운로드했습니다",
@@ -131,5 +132,29 @@
     "password_placeholder": "••••••••",
     "submit": "로그인",
     "message_failed": "로그인에 실패했습니다"
+  },
+  "replay": {
+    "title": "요청 재생",
+    "description": "요청 매개변수를 수정하여 대상 URL로 전송",
+    "fields": {
+      "target_url": "대상 URL",
+      "method": "메서드",
+      "headers": "헤더 (JSON)",
+      "body": "본문",
+      "query": "쿼리 문자열"
+    },
+    "actions": {
+      "cancel": "취소",
+      "submit": "재생"
+    },
+    "status": {
+      "sending": "전송 중...",
+      "success": "재생 성공! 상태: {status_code}, 시간: {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "대상 URL은 필수 항목입니다",
+      "invalid_headers": "헤더 JSON 형식이 유효하지 않습니다",
+      "failed": "재생 실패: {error}"
+    }
   }
 }

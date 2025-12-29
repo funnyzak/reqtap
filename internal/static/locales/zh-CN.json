@@ -71,6 +71,7 @@
     "actions": {
       "download_request": "下载请求",
       "copy_request": "复制请求",
+      "replay_request": "重放请求",
       "copy_curl": "复制 cURL 命令",
       "status": {
         "request_downloaded": "请求已下载",
@@ -134,5 +135,29 @@
     "password_placeholder": "••••••••",
     "submit": "登录",
     "message_failed": "登录失败"
+  },
+  "replay": {
+    "title": "重放请求",
+    "description": "修改请求参数并发送到目标 URL",
+    "fields": {
+      "target_url": "目标 URL",
+      "method": "请求方法",
+      "headers": "请求头 (JSON)",
+      "body": "请求体",
+      "query": "查询参数"
+    },
+    "actions": {
+      "cancel": "取消",
+      "submit": "重放"
+    },
+    "status": {
+      "sending": "发送中...",
+      "success": "重放成功！状态码: {status_code}，响应时间: {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "目标 URL 不能为空",
+      "invalid_headers": "请求头 JSON 格式无效",
+      "failed": "重放失败: {error}"
+    }
   }
 }

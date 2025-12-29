@@ -68,6 +68,7 @@
     "actions": {
       "download_request": "リクエストをダウンロード",
       "copy_request": "リクエストをコピー",
+      "replay_request": "リクエストをリプレイ",
       "copy_curl": "cURLコマンドをコピー",
       "status": {
         "request_downloaded": "リクエストをダウンロードしました",
@@ -131,5 +132,29 @@
     "password_placeholder": "••••••••",
     "submit": "ログイン",
     "message_failed": "ログインに失敗しました"
+  },
+  "replay": {
+    "title": "リクエストをリプレイ",
+    "description": "リクエストパラメータを変更してターゲットURLに送信",
+    "fields": {
+      "target_url": "ターゲットURL",
+      "method": "メソッド",
+      "headers": "ヘッダー (JSON)",
+      "body": "ボディ",
+      "query": "クエリ文字列"
+    },
+    "actions": {
+      "cancel": "キャンセル",
+      "submit": "リプレイ"
+    },
+    "status": {
+      "sending": "送信中...",
+      "success": "リプレイ成功！ステータス: {status_code}、時間: {response_time}ms"
+    },
+    "errors": {
+      "target_url_required": "ターゲットURLは必須です",
+      "invalid_headers": "ヘッダーのJSON形式が無効です",
+      "failed": "リプレイ失敗: {error}"
+    }
   }
 }
